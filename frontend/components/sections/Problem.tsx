@@ -1,32 +1,57 @@
 "use client";
 
-import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+gsap.registerPlugin(ScrollTrigger);
 
 export default function Problem() {
-    const problemRef = useRef<HTMLElement>(null);
-    const { scrollYProgress } = useScroll({
-        target: problemRef,
-        offset: ["start end", "center center"],
-    });
+    const sectionRef = useRef<HTMLElement>(null);
+    const boxRef = useRef<HTMLDivElement>(null);
 
-    const scale = useTransform(scrollYProgress, [0, 1], [0.4, 1]);
-    const borderRadius = useTransform(scrollYProgress, [0, 1], ["4rem", "1.5rem"]);
+    useGSAP(() => {
+        // Scale and un-round as it scrolls from bottom to top
+        gsap.fromTo(boxRef.current,
+            { scale: 0.4, borderRadius: "120px" },
+            {
+                scale: 1,
+                borderRadius: "48px", // Keep it explicitly rounded at max scale!
+                ease: "none",
+                scrollTrigger: {
+                    trigger: sectionRef.current,
+                    start: "top bottom",
+                    end: "top top",
+                    scrub: true,
+                }
+            }
+        );
+
+        // Pin the section once it hits the top of the viewport
+        ScrollTrigger.create({
+            trigger: sectionRef.current,
+            start: "top top",
+            end: "+=1500", // Pinned duration length
+            pin: true,
+            anticipatePin: 1
+        });
+
+    }, { scope: sectionRef });
 
     return (
-        <section ref={problemRef} className="h-[200vh] bg-background relative z-10 -mt-20">
-            <div className="sticky top-0 h-screen w-full flex flex-col items-center justify-center p-4 md:p-12 overflow-hidden">
-                <motion.div
-                    style={{ scale, borderRadius }}
-                    className="w-full h-full flex flex-col items-center justify-center px-6 bg-foreground text-background origin-center overflow-hidden"
-                >
-                    <div className="max-w-4xl text-center">
-                        <h2 className="text-4xl md:text-5xl font-bold mb-8">Spreadsheets are failing you.</h2>
-                        <p className="text-xl md:text-2xl text-background/80 leading-relaxed">
-                            Lost equipment, expired warranties, and unchecked depreciation. When your assets are scattered across multiple systems, you lose time, money, and accountability.
-                        </p>
-                    </div>
-                </motion.div>
+        <section ref={sectionRef} className="h-screen bg-background relative z-10 flex flex-col items-center justify-center p-4 md:p-10 overflow-hidden">
+            {/* The box itself explicitly stops at 90-95% viewport so the corners are always visible! */}
+            <div
+                ref={boxRef}
+                className="w-full h-full md:w-[92vw] md:h-[92vh] flex flex-col items-center justify-center px-6 bg-foreground text-background origin-center overflow-hidden"
+            >
+                <div className="max-w-4xl text-center">
+                    <h2 className="text-4xl md:text-5xl font-bold mb-8">Spreadsheets are failing you.</h2>
+                    <p className="text-xl md:text-2xl text-background/80 leading-relaxed">
+                        Lost equipment, expired warranties, and unchecked depreciation. When your assets are scattered across multiple systems, you lose time, money, and accountability.
+                    </p>
+                </div>
             </div>
         </section>
     );

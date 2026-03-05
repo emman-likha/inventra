@@ -12,7 +12,7 @@ import Footer from "@/components/sections/Footer";
 
 export default function Home() {
   return (
-    <div className="flex flex-col w-full min-h-screen">
+    <div className="w-full min-h-screen">
       <Hero />
       <Problem />
       <Solution />
