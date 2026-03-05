@@ -1,3 +1,4 @@
+import Navbar from "@/components/Navbar";
 import Hero from "@/components/sections/Hero";
 import Problem from "@/components/sections/Problem";
 import Solution from "@/components/sections/Solution";
@@ -12,16 +13,17 @@ import Footer from "@/components/sections/Footer";
 
 export default function Home() {
   return (
-    <div className="w-full min-h-screen">
+    <div id="top" className="w-full min-h-screen">
+      <Navbar />
       <Hero />
-      <Problem />
-      <Solution />
-      <HowItWorks />
-      <FeatureShowcase />
-      <UseCases />
-      <WhyInventra />
-      <Pricing />
-      <Testimonials />
+      <div id="problem"><Problem /></div>
+      <div id="solution"><Solution /></div>
+      <div id="how-it-works"><HowItWorks /></div>
+      <div id="features"><FeatureShowcase /></div>
+      <div id="use-cases"><UseCases /></div>
+      <div id="why-inventra"><WhyInventra /></div>
+      <div id="pricing"><Pricing /></div>
+      <div id="testimonials"><Testimonials /></div>
       <FinalCTA />
       <Footer />
     </div>
