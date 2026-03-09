@@ -65,9 +65,9 @@ export default function Navbar() {
                             {item.name}
                         </a>
                     ))}
-                    <button className="bg-foreground text-background px-5 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-opacity">
+                    <Link href="/login" className="bg-foreground text-background px-5 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-opacity">
                         Get Started
-                    </button>
+                    </Link>
                 </div>
 
                 {/* Mobile Hamburger Toggle */}
@@ -94,9 +94,9 @@ export default function Navbar() {
                             {item.name}
                         </a>
                     ))}
-                    <button className="bg-foreground text-background px-5 py-3 rounded-full text-base font-medium hover:opacity-90 transition-opacity w-full mt-2">
+                    <Link href="/login" className="bg-foreground text-background px-5 py-3 rounded-full text-base font-medium hover:opacity-90 transition-opacity w-full mt-2 text-center block">
                         Get Started
-                    </button>
+                    </Link>
                 </div>
             )}
         </motion.nav>
