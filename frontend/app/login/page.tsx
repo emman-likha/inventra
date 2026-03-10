@@ -1,12 +1,18 @@
 "use client";
 
-import { useState, useRef, useMemo, Suspense } from "react";
+import { useState, useRef, useMemo, Suspense, useEffect } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import dynamic from "next/dynamic";
+import { useFrame, useThree } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import * as THREE from "three";
+
+const Canvas = dynamic(
+  () => import("@react-three/fiber").then((mod) => mod.Canvas),
+  { ssr: false }
+);
 
 /* ── Staggered field animation ─────────────────────────────────── */
 
@@ -343,6 +349,12 @@ function TextRow({
 }
 
 function KineticBackground() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const rows = useMemo(() => {
     const result = [];
     for (let i = -7; i <= 7; i++) {
@@ -355,9 +367,11 @@ function KineticBackground() {
     return result;
   }, []);
 
+  if (!mounted) return null;
+
   return (
-    <div className="absolute inset-0 z-0 pointer-events-none">
-      <Canvas camera={{ position: [0, 0, 10], fov: 50 }} dpr={[1, 2]}>
+    <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0 }}>
+      <Canvas camera={{ position: [0, 0, 10], fov: 50 }} dpr={[1, 2]} style={{ position: "absolute", inset: 0 }}>
         {rows.map((row, idx) => (
           <TextRow
             key={idx}
@@ -424,7 +438,7 @@ function LoginContent() {
       <KineticBackground />
       <FloatingDots />
 
-      <div className="w-full max-w-lg mx-auto px-6 relative z-10">
+      <div className="w-full max-w-lg mx-auto px-6 relative" style={{ zIndex: 10 }}>
         <div className="w-full">
           {/* Form card */}
           <motion.div
