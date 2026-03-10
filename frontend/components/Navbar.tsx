@@ -65,7 +65,7 @@ export default function Navbar() {
                             {item.name}
                         </a>
                     ))}
-                    <Link href="/login" className="bg-foreground text-background px-5 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-opacity">
+                    <Link href="/login?mode=signup" target="_blank" className="bg-foreground text-background px-5 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-opacity">
                         Get Started
                     </Link>
                 </div>
@@ -94,7 +94,7 @@ export default function Navbar() {
                             {item.name}
                         </a>
                     ))}
-                    <Link href="/login" className="bg-foreground text-background px-5 py-3 rounded-full text-base font-medium hover:opacity-90 transition-opacity w-full mt-2 text-center block">
+                    <Link href="/login?mode=signup" target="_blank" className="bg-foreground text-background px-5 py-3 rounded-full text-base font-medium hover:opacity-90 transition-opacity w-full mt-2 text-center block">
                         Get Started
                     </Link>
                 </div>

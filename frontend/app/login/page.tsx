@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useRef, useMemo } from "react";
+import { motion, AnimatePresence, Variants } from "framer-motion";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Text } from "@react-three/drei";
+import * as THREE from "three";
 
 /* ── Staggered field animation ─────────────────────────────────── */
 
-const fieldVariants = {
+const fieldVariants: Variants = {
   hidden: { opacity: 0, y: 12 },
   visible: (i: number) => ({
     opacity: 1,
@@ -71,8 +75,6 @@ function GoogleButton() {
     </motion.button>
   );
 }
-
-/* ── Animated field wrapper ────────────────────────────────────── */
 
 function Field({
   children,
@@ -237,6 +239,139 @@ function SignUpForm() {
   );
 }
 
+/* ── Kinetic Background Components ────────────────────────────── */
+
+function TextRow({
+  y,
+  direction,
+  text,
+  speed
+}: {
+  y: number;
+  direction: number;
+  text: string;
+  speed: number
+}) {
+  const meshRef = useRef<THREE.Group>(null);
+  const { viewport, mouse } = useThree();
+
+  const chars = useMemo(() => text.split(""), [text]);
+  const letterSpacing = 0.85;
+  const wordSpacing = 5.0;
+  const totalWordWidth = (chars.length * letterSpacing) + wordSpacing;
+
+  const wordOffsets = useMemo(() => [-3, -2, -1, 0, 1, 2, 3], []);
+
+  useFrame((state, delta) => {
+    if (!meshRef.current) return;
+
+    // Movement
+    meshRef.current.position.x += direction * speed * delta;
+
+    // Smooth looping
+    if (direction > 0 && meshRef.current.position.x > totalWordWidth) {
+      meshRef.current.position.x -= totalWordWidth;
+    } else if (direction < 0 && meshRef.current.position.x < -totalWordWidth) {
+      meshRef.current.position.x += totalWordWidth;
+    }
+
+    // Cursor position in world coordinates
+    const mouseWorldX = (mouse.x * viewport.width) / 2;
+    const mouseWorldY = (mouse.y * viewport.height) / 2;
+
+    // Magnifying glass effect per letter
+    meshRef.current.children.forEach((wordGroup) => {
+      if (wordGroup instanceof THREE.Group) {
+        wordGroup.children.forEach((charMesh) => {
+          if (charMesh instanceof THREE.Mesh) {
+            const charPos = new THREE.Vector3();
+            charMesh.getWorldPosition(charPos);
+
+            const dist = Math.sqrt(
+              Math.pow(charPos.x - mouseWorldX, 2) +
+              Math.pow(charPos.y - mouseWorldY, 2)
+            );
+
+            // True magnifying glass effect: tight radius, high zoom
+            const maxDist = 2.2;
+            const isInside = dist < maxDist;
+
+            // Zoom scale
+            const zoom = isInside ? 1 + (1 - dist / maxDist) * 1.6 : 1;
+            const targetScale = new THREE.Vector3(zoom, zoom, 1);
+            charMesh.scale.lerp(targetScale, 0.15);
+
+            // Dynamic opacity based on proximity
+            if (charMesh.material instanceof THREE.MeshBasicMaterial) {
+              const targetOpacity = isInside ? 0.45 : 0.05;
+              charMesh.material.opacity = THREE.MathUtils.lerp(
+                charMesh.material.opacity,
+                targetOpacity,
+                0.1
+              );
+            }
+          }
+        });
+      }
+    });
+  });
+
+  return (
+    <group ref={meshRef} position={[0, y, 0]}>
+      {wordOffsets.map((wIdx) => (
+        <group key={wIdx} position={[wIdx * totalWordWidth, 0, 0]}>
+          {chars.map((char, cIdx) => (
+            <Text
+              key={cIdx}
+              position={[cIdx * letterSpacing - (chars.length * letterSpacing) / 2, 0, 0]}
+              fontSize={1.1}
+              color="black"
+              anchorX="center"
+              anchorY="middle"
+              // @ts-ignore - transparent/opacity handled by Text
+              transparent={true}
+              // @ts-ignore
+              opacity={0.05}
+            >
+              {char}
+            </Text>
+          ))}
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function KineticBackground() {
+  const rows = useMemo(() => {
+    const result = [];
+    for (let i = -7; i <= 7; i++) {
+      result.push({
+        y: i * 1.6,
+        direction: i % 2 === 0 ? 1 : -1,
+        speed: 0.4 + (Math.abs(i) % 3) * 0.2,
+      });
+    }
+    return result;
+  }, []);
+
+  return (
+    <div className="absolute inset-0 z-0 pointer-events-none">
+      <Canvas camera={{ position: [0, 0, 10], fov: 50 }} dpr={[1, 2]}>
+        {rows.map((row, idx) => (
+          <TextRow
+            key={idx}
+            y={row.y}
+            direction={row.direction}
+            text="INVENTRA"
+            speed={row.speed}
+          />
+        ))}
+      </Canvas>
+    </div>
+  );
+}
+
 /* ── Floating dots background ─────────────────────────────────── */
 
 function FloatingDots() {
@@ -269,7 +404,8 @@ function FloatingDots() {
 /* ── Main page ──────────────────────────────────────────────────── */
 
 export default function LoginPage() {
-  const [isSignUp, setIsSignUp] = useState(false);
+  const searchParams = useSearchParams();
+  const [isSignUp, setIsSignUp] = useState(searchParams.get("mode") === "signup");
 
   const toggleMode = () => {
     setIsSignUp((prev) => !prev);
@@ -277,132 +413,86 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden flex flex-col items-center justify-center">
+      <KineticBackground />
       <FloatingDots />
 
-      <div className="w-full max-w-[1300px] mx-auto flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-20 px-6 lg:px-12 xl:px-16 relative z-10">
-        {/* ── Left hero panel ─────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8 }}
-          className="lg:flex-1 w-full flex flex-col justify-center py-8 lg:py-0"
-        >
-          {/* Big branding */}
-          <div className="flex flex-col justify-center">
-            <motion.h1
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.2 }}
-              className="text-[clamp(3.5rem,8vw,7.5rem)] font-bold tracking-tighter text-foreground leading-[0.85] select-none"
-            >
-              INVENTRA.
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="text-foreground/40 text-base sm:text-lg mt-6 max-w-sm leading-relaxed"
-            >
-              Smart inventory management for modern teams.
-              Track, organize, and optimize your assets in&nbsp;real&nbsp;time.
-            </motion.p>
-          </div>
-        </motion.div>
-
-        {/* ── Right form panel ────────────────────────────────────── */}
-        <div className="lg:flex-1 w-full flex flex-col items-center lg:items-end justify-center py-8 lg:py-0">
-          {/* Mobile-only logo (now hidden on lg since hero is visible) */}
+      <div className="w-full max-w-lg mx-auto px-6 relative z-10">
+        <div className="w-full">
+          {/* Form card */}
           <motion.div
-            initial={{ opacity: 0, y: -15 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="lg:hidden absolute top-8 left-8 z-10"
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="w-full"
           >
-            <Link
-              href="/"
-              className="text-xl font-bold tracking-tighter text-foreground"
-            >
-              INVENTRA.
-            </Link>
-          </motion.div>
-
-          <div className="w-full max-w-md">
-            {/* Form card */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="w-full"
+              layout
+              transition={{
+                layout: { duration: 0.4, ease: [0.4, 0, 0.2, 1] },
+              }}
+              className="bg-foreground/[0.03] backdrop-blur-xl border border-foreground/[0.08] rounded-[2rem] p-8 sm:p-10 overflow-hidden"
             >
-              <motion.div
-                layout
-                transition={{
-                  layout: { duration: 0.4, ease: [0.4, 0, 0.2, 1] },
-                }}
-                className="bg-foreground/[0.03] backdrop-blur-xl border border-foreground/[0.08] rounded-[2rem] p-8 sm:p-10 overflow-hidden"
-              >
-                {/* Header */}
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={isSignUp ? "signup-header" : "signin-header"}
-                    initial={{ opacity: 0, x: isSignUp ? 20 : -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: isSignUp ? -20 : 20 }}
-                    transition={{
-                      duration: 0.25,
-                      ease: [0.25, 0.46, 0.45, 0.94],
-                    }}
-                    className="mb-8"
-                  >
-                    <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
-                      {isSignUp ? "Create account" : "Welcome back"}
-                    </h1>
-                    <p className="text-foreground/50 mt-2 text-sm">
-                      {isSignUp
-                        ? "Start managing your assets intelligently."
-                        : "Sign in to continue to Inventra."}
-                    </p>
-                  </motion.div>
-                </AnimatePresence>
+              {/* Header */}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={isSignUp ? "signup-header" : "signin-header"}
+                  initial={{ opacity: 0, x: isSignUp ? 20 : -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: isSignUp ? -20 : 20 }}
+                  transition={{
+                    duration: 0.25,
+                    ease: [0.25, 0.46, 0.45, 0.94],
+                  }}
+                  className="mb-8"
+                >
+                  <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+                    {isSignUp ? "Create account" : "Welcome back"}
+                  </h1>
+                  <p className="text-foreground/50 mt-2 text-sm">
+                    {isSignUp
+                      ? "Start managing your assets intelligently."
+                      : "Sign in to continue to Inventra."}
+                  </p>
+                </motion.div>
+              </AnimatePresence>
 
-                {/* Form — crossfade with staggered fields */}
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={isSignUp ? "signup" : "signin"}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{
-                      duration: 0.2,
-                      ease: "easeInOut",
-                    }}
-                  >
-                    {isSignUp ? <SignUpForm /> : <SignInForm />}
-                  </motion.div>
-                </AnimatePresence>
-              </motion.div>
-
-              {/* Toggle mode */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.4 }}
-                className="mt-6 text-center lg:text-right px-4"
-              >
-                <p className="text-foreground/40 text-sm">
-                  {isSignUp
-                    ? "Already have an account?"
-                    : "Don\u2019t have an account?"}{" "}
-                  <button
-                    onClick={toggleMode}
-                    className="text-foreground font-medium hover:text-foreground/80 transition-colors cursor-pointer"
-                  >
-                    {isSignUp ? "Sign in" : "Sign up"}
-                  </button>
-                </p>
-              </motion.div>
+              {/* Form — crossfade with staggered fields */}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={isSignUp ? "signup" : "signin"}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{
+                    duration: 0.2,
+                    ease: "easeInOut",
+                  }}
+                >
+                  {isSignUp ? <SignUpForm /> : <SignInForm />}
+                </motion.div>
+              </AnimatePresence>
             </motion.div>
-          </div>
+
+            {/* Toggle mode */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="mt-6 text-center px-4"
+            >
+              <p className="text-foreground/40 text-sm">
+                {isSignUp
+                  ? "Already have an account?"
+                  : "Don\u2019t have an account?"}{" "}
+                <button
+                  onClick={toggleMode}
+                  className="text-foreground font-medium hover:text-foreground/80 transition-colors cursor-pointer"
+                >
+                  {isSignUp ? "Sign in" : "Sign up"}
+                </button>
+              </p>
+            </motion.div>
+          </motion.div>
         </div>
       </div>
 
