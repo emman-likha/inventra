@@ -3,16 +3,12 @@
 import { useState, useRef, useMemo, Suspense, useEffect } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import dynamic from "next/dynamic";
-import { useFrame, useThree } from "@react-three/fiber";
-import { Text } from "@react-three/drei";
-import * as THREE from "three";
+import { useSearchParams, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { KineticBackground } from "@/components/KineticBackground";
+import { FloatingDots } from "@/components/FloatingDots";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
-const Canvas = dynamic(
-  () => import("@react-three/fiber").then((mod) => mod.Canvas),
-  { ssr: false }
-);
 
 /* ── Staggered field animation ─────────────────────────────────── */
 
@@ -51,10 +47,11 @@ function Divider() {
   );
 }
 
-function GoogleButton() {
+function GoogleButton({ onClick }: { onClick?: () => void }) {
   return (
     <motion.button
       type="button"
+      onClick={onClick}
       whileHover={{ scale: 1.005 }}
       whileTap={{ scale: 0.985 }}
       className="w-full bg-foreground/[0.04] border border-foreground/[0.08] py-3.5 rounded-full font-medium text-sm text-foreground hover:bg-foreground/[0.07] transition-all duration-200 flex items-center justify-center gap-3 cursor-pointer"
@@ -96,10 +93,53 @@ function Field({
   );
 }
 
-function SignInForm() {
+function SignInForm({ onAuthSuccess }: { onAuthSuccess: (path: string) => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    if (data.user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.user.id)
+        .single();
+
+      if (profile?.role === "admin") {
+        onAuthSuccess("/admin/dashboard");
+      } else {
+        onAuthSuccess("/dashboard");
+      }
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/dashboard` },
+    });
+  };
+
   return (
     <motion.form
-      onSubmit={(e) => e.preventDefault()}
+      onSubmit={handleSignIn}
       className="flex flex-col gap-5"
       initial="hidden"
       animate="visible"
@@ -109,6 +149,12 @@ function SignInForm() {
         exit: { transition: { staggerChildren: 0.03 } },
       }}
     >
+      {error && (
+        <p className="text-red-500 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+          {error}
+        </p>
+      )}
+
       <Field index={0}>
         <label className="block text-foreground/40 text-xs font-medium mb-2 ml-1">
           Email address
@@ -116,6 +162,9 @@ function SignInForm() {
         <input
           type="email"
           placeholder="you@company.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
           className={inputClass}
         />
       </Field>
@@ -135,6 +184,9 @@ function SignInForm() {
         <input
           type="password"
           placeholder="••••••••"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
           className={inputClass}
         />
       </Field>
@@ -143,26 +195,89 @@ function SignInForm() {
         <div className="flex flex-col gap-3 mt-3">
           <motion.button
             type="submit"
+            disabled={loading}
             whileHover={{ scale: 1.005 }}
             whileTap={{ scale: 0.985 }}
-            className="w-full bg-foreground text-background py-3.5 rounded-full font-medium text-sm hover:opacity-90 transition-opacity cursor-pointer"
+            className="w-full bg-foreground text-background py-3.5 rounded-full font-medium text-sm hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
           >
-            Sign in
+            {loading ? "Signing in..." : "Sign in"}
           </motion.button>
 
           <Divider />
 
-          <GoogleButton />
+          <GoogleButton onClick={handleGoogleSignIn} />
         </div>
       </Field>
     </motion.form>
   );
 }
 
-function SignUpForm() {
+function SignUpForm({ onAuthSuccess }: { onAuthSuccess: (path: string) => void }) {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+        },
+      },
+    });
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    // Since email confirmation is disabled, user is automatically signed in or can be signed in immediately
+    if (data.session) {
+      onAuthSuccess("/dashboard");
+    } else {
+      // Fallback if not automatically signed in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (signInError) {
+        setError("Account created, but could not sign in automatically. Please sign in manually.");
+        setLoading(false);
+      } else {
+        onAuthSuccess("/dashboard");
+      }
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/dashboard` },
+    });
+  };
+
+
   return (
     <motion.form
-      onSubmit={(e) => e.preventDefault()}
+      onSubmit={handleSignUp}
       className="flex flex-col gap-5"
       initial="hidden"
       animate="visible"
@@ -172,19 +287,39 @@ function SignUpForm() {
         exit: { transition: { staggerChildren: 0.03 } },
       }}
     >
+      {error && (
+        <p className="text-red-500 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+          {error}
+        </p>
+      )}
+
       <Field index={0}>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-foreground/40 text-xs font-medium mb-2 ml-1">
               First name
             </label>
-            <input type="text" placeholder="John" className={inputClass} />
+            <input
+              type="text"
+              placeholder="John"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              required
+              className={inputClass}
+            />
           </div>
           <div>
             <label className="block text-foreground/40 text-xs font-medium mb-2 ml-1">
               Last name
             </label>
-            <input type="text" placeholder="Doe" className={inputClass} />
+            <input
+              type="text"
+              placeholder="Doe"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              required
+              className={inputClass}
+            />
           </div>
         </div>
       </Field>
@@ -196,6 +331,9 @@ function SignUpForm() {
         <input
           type="email"
           placeholder="you@company.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
           className={inputClass}
         />
       </Field>
@@ -209,6 +347,10 @@ function SignUpForm() {
             <input
               type="password"
               placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
               className={inputClass}
             />
           </div>
@@ -219,6 +361,10 @@ function SignUpForm() {
             <input
               type="password"
               placeholder="••••••••"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              minLength={6}
               className={inputClass}
             />
           </div>
@@ -229,16 +375,17 @@ function SignUpForm() {
         <div className="flex flex-col gap-3 mt-3">
           <motion.button
             type="submit"
+            disabled={loading}
             whileHover={{ scale: 1.005 }}
             whileTap={{ scale: 0.985 }}
-            className="w-full bg-foreground text-background py-3.5 rounded-full font-medium text-sm hover:opacity-90 transition-opacity cursor-pointer"
+            className="w-full bg-foreground text-background py-3.5 rounded-full font-medium text-sm hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
           >
-            Create account
+            {loading ? "Creating account..." : "Create account"}
           </motion.button>
 
           <Divider />
 
-          <GoogleButton />
+          <GoogleButton onClick={handleGoogleSignUp} />
         </div>
       </Field>
     </motion.form>
@@ -247,173 +394,6 @@ function SignUpForm() {
 
 /* ── Kinetic Background Components ────────────────────────────── */
 
-function TextRow({
-  y,
-  direction,
-  text,
-  speed
-}: {
-  y: number;
-  direction: number;
-  text: string;
-  speed: number
-}) {
-  const meshRef = useRef<THREE.Group>(null);
-  const { viewport, mouse } = useThree();
-
-  const chars = useMemo(() => text.split(""), [text]);
-  const letterSpacing = 0.85;
-  const wordSpacing = 5.0;
-  const totalWordWidth = (chars.length * letterSpacing) + wordSpacing;
-
-  const wordOffsets = useMemo(() => [-3, -2, -1, 0, 1, 2, 3], []);
-
-  useFrame((state, delta) => {
-    if (!meshRef.current) return;
-
-    // Movement
-    meshRef.current.position.x += direction * speed * delta;
-
-    // Smooth looping
-    if (direction > 0 && meshRef.current.position.x > totalWordWidth) {
-      meshRef.current.position.x -= totalWordWidth;
-    } else if (direction < 0 && meshRef.current.position.x < -totalWordWidth) {
-      meshRef.current.position.x += totalWordWidth;
-    }
-
-    // Cursor position in world coordinates
-    const mouseWorldX = (mouse.x * viewport.width) / 2;
-    const mouseWorldY = (mouse.y * viewport.height) / 2;
-
-    // Magnifying glass effect per letter
-    meshRef.current.children.forEach((wordGroup) => {
-      if (wordGroup instanceof THREE.Group) {
-        wordGroup.children.forEach((charMesh) => {
-          if (charMesh instanceof THREE.Mesh) {
-            const charPos = new THREE.Vector3();
-            charMesh.getWorldPosition(charPos);
-
-            const dist = Math.sqrt(
-              Math.pow(charPos.x - mouseWorldX, 2) +
-              Math.pow(charPos.y - mouseWorldY, 2)
-            );
-
-            // True magnifying glass effect: tight radius, high zoom
-            const maxDist = 2.2;
-            const isInside = dist < maxDist;
-
-            // Zoom scale
-            const zoom = isInside ? 1 + (1 - dist / maxDist) * 1.6 : 1;
-            const targetScale = new THREE.Vector3(zoom, zoom, 1);
-            charMesh.scale.lerp(targetScale, 0.15);
-
-            // Dynamic opacity based on proximity
-            if (charMesh.material instanceof THREE.MeshBasicMaterial) {
-              const targetOpacity = isInside ? 0.45 : 0.05;
-              charMesh.material.opacity = THREE.MathUtils.lerp(
-                charMesh.material.opacity,
-                targetOpacity,
-                0.1
-              );
-            }
-          }
-        });
-      }
-    });
-  });
-
-  return (
-    <group ref={meshRef} position={[0, y, 0]}>
-      {wordOffsets.map((wIdx) => (
-        <group key={wIdx} position={[wIdx * totalWordWidth, 0, 0]}>
-          {chars.map((char, cIdx) => (
-            <Text
-              key={cIdx}
-              position={[cIdx * letterSpacing - (chars.length * letterSpacing) / 2, 0, 0]}
-              fontSize={1.1}
-              color="black"
-              anchorX="center"
-              anchorY="middle"
-              // @ts-ignore - transparent/opacity handled by Text
-              transparent={true}
-              // @ts-ignore
-              opacity={0.05}
-            >
-              {char}
-            </Text>
-          ))}
-        </group>
-      ))}
-    </group>
-  );
-}
-
-function KineticBackground() {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const rows = useMemo(() => {
-    const result = [];
-    for (let i = -7; i <= 7; i++) {
-      result.push({
-        y: i * 1.6,
-        direction: i % 2 === 0 ? 1 : -1,
-        speed: 0.4 + (Math.abs(i) % 3) * 0.2,
-      });
-    }
-    return result;
-  }, []);
-
-  if (!mounted) return null;
-
-  return (
-    <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0 }}>
-      <Canvas camera={{ position: [0, 0, 10], fov: 50 }} dpr={[1, 2]} style={{ position: "absolute", inset: 0 }}>
-        {rows.map((row, idx) => (
-          <TextRow
-            key={idx}
-            y={row.y}
-            direction={row.direction}
-            text="INVENTRA"
-            speed={row.speed}
-          />
-        ))}
-      </Canvas>
-    </div>
-  );
-}
-
-/* ── Floating dots background ─────────────────────────────────── */
-
-function FloatingDots() {
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {[...Array(5)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-1 h-1 rounded-full bg-foreground/[0.06]"
-          style={{
-            left: `${15 + i * 18}%`,
-            top: `${20 + (i % 3) * 25}%`,
-          }}
-          animate={{
-            y: [0, -20, 0],
-            opacity: [0.3, 0.6, 0.3],
-          }}
-          transition={{
-            duration: 4 + i,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: i * 0.8,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
 
 /* ── Main page ──────────────────────────────────────────────────── */
 
@@ -427,7 +407,19 @@ export default function LoginPage() {
 
 function LoginContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [isSignUp, setIsSignUp] = useState(searchParams.get("mode") === "signup");
+  const [showLoading, setShowLoading] = useState(false);
+  const [redirectPath, setRedirectPath] = useState("/dashboard");
+
+  const handleAuthSuccess = (path: string) => {
+    setRedirectPath(path);
+    setShowLoading(true);
+  };
+
+  const handleLoadingComplete = () => {
+    router.push(redirectPath);
+  };
 
   const toggleMode = () => {
     setIsSignUp((prev) => !prev);
@@ -435,6 +427,12 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden flex flex-col items-center justify-center">
+      <AnimatePresence>
+        {showLoading && (
+          <LoadingScreen onComplete={handleLoadingComplete} />
+        )}
+      </AnimatePresence>
+
       <KineticBackground />
       <FloatingDots />
 
@@ -490,7 +488,7 @@ function LoginContent() {
                     ease: "easeInOut",
                   }}
                 >
-                  {isSignUp ? <SignUpForm /> : <SignInForm />}
+                  {isSignUp ? <SignUpForm onAuthSuccess={handleAuthSuccess} /> : <SignInForm onAuthSuccess={handleAuthSuccess} />}
                 </motion.div>
               </AnimatePresence>
             </motion.div>
