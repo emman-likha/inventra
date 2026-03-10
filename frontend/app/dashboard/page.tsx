@@ -1,93 +1,106 @@
 "use client";
 
-import { KineticBackground } from "@/components/KineticBackground";
-import { FloatingDots } from "@/components/FloatingDots";
 import { motion } from "framer-motion";
-import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+
+const stagger = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.06 },
+  },
+};
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+};
 
 export default function DashboardPage() {
-    const router = useRouter();
-    const [userName, setUserName] = useState("");
+  return (
+    <motion.div variants={stagger} initial="hidden" animate="visible">
+      {/* Header */}
+      <motion.div variants={fadeUp} className="mb-10">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          Overview
+        </h1>
+        <p className="text-foreground/50 mt-1 text-sm">
+          Your asset management at a glance.
+        </p>
+      </motion.div>
 
-    useEffect(() => {
-        const checkUser = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                router.push("/login");
-                return;
-            }
+      {/* Stat cards */}
+      <motion.div variants={fadeUp} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+        {[
+          { label: "Total Assets", value: "48", change: "+3 this week" },
+          { label: "Checked Out", value: "12", change: "25% of total" },
+          { label: "Categories", value: "6", change: "2 most used" },
+          { label: "Pending", value: "3", change: "Awaiting approval" },
+        ].map((stat, i) => (
+          <div
+            key={i}
+            className="bg-foreground/[0.03] border border-foreground/[0.08] rounded-2xl p-5 hover:bg-foreground/[0.06] transition-colors group"
+          >
+            <p className="text-foreground/50 text-xs font-semibold uppercase tracking-wider mb-3">
+              {stat.label}
+            </p>
+            <p className="text-2xl font-bold text-foreground tracking-tight group-hover:translate-x-0.5 transition-transform">
+              {stat.value}
+            </p>
+            <p className="text-foreground/40 text-xs mt-1">{stat.change}</p>
+          </div>
+        ))}
+      </motion.div>
 
-            const { data: profile } = await supabase
-                .from("profiles")
-                .select("first_name, role")
-                .eq("id", session.user.id)
-                .single();
-
-            if (profile?.role === "admin") {
-                router.push("/admin/dashboard");
-                return;
-            }
-
-            setUserName(profile?.first_name || "User");
-        };
-
-        checkUser();
-    }, [router]);
-
-    const handleSignOut = async () => {
-        await supabase.auth.signOut();
-        router.push("/login");
-    };
-
-    return (
-        <div className="min-h-screen bg-background relative overflow-hidden flex flex-col items-center justify-center p-6">
-            <KineticBackground />
-            <FloatingDots />
-
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5 }}
-                className="w-full max-w-2xl bg-foreground/[0.03] backdrop-blur-xl border border-foreground/[0.08] rounded-[2.5rem] p-12 text-center relative z-10"
-            >
-                <div className="mb-8">
-                    <div className="w-20 h-20 bg-foreground/[0.05] rounded-full flex items-center justify-center mx-auto mb-6">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/40">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="12" cy="7" r="4"></circle>
-                        </svg>
-                    </div>
-                    <h1 className="text-4xl font-bold text-foreground tracking-tight">
-                        Welcome back, {userName}
-                    </h1>
-                    <p className="text-foreground/50 mt-3 text-lg">
-                        This is your personal asset management dashboard.
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-12">
-                    <button className="bg-foreground text-background py-4 px-8 rounded-full font-medium transition-opacity hover:opacity-90">
-                        View Assets
-                    </button>
-                    <button
-                        onClick={handleSignOut}
-                        className="bg-foreground/[0.05] text-foreground py-4 px-8 rounded-full font-medium transition-colors hover:bg-foreground/[0.1]"
-                    >
-                        Sign Out
-                    </button>
-                </div>
-            </motion.div>
-
-            <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.8 }}
-                className="absolute bottom-8 text-foreground/20 text-xs z-10"
-            >
-                &copy; {new Date().getFullYear()} Inventra &bull; Private Access
-            </motion.p>
+      {/* Recent assets table */}
+      <motion.div variants={fadeUp}>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold text-foreground tracking-tight">Recent Assets</h2>
+          <button className="text-xs font-medium text-foreground/50 hover:text-foreground/70 transition-colors">
+            View all
+          </button>
         </div>
-    );
+
+        <div className="border border-foreground/[0.08] rounded-2xl overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-foreground/[0.08]">
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider">Name</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider hidden sm:table-cell">Category</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider hidden md:table-cell">Assigned To</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { name: "MacBook Pro 14\"", category: "Laptops", assignee: "You", status: "Active" },
+                { name: "Dell Monitor 27\"", category: "Monitors", assignee: "You", status: "Active" },
+                { name: "Logitech MX Keys", category: "Peripherals", assignee: "You", status: "Active" },
+                { name: "Standing Desk", category: "Furniture", assignee: "You", status: "Pending" },
+                { name: "Webcam C920", category: "Peripherals", assignee: "—", status: "Available" },
+              ].map((asset, i) => (
+                <tr
+                  key={i}
+                  className="border-b border-foreground/[0.06] last:border-0 hover:bg-foreground/[0.03] transition-colors"
+                >
+                  <td className="px-5 py-3.5 text-sm font-medium text-foreground">{asset.name}</td>
+                  <td className="px-5 py-3.5 text-sm text-foreground/55 hidden sm:table-cell">{asset.category}</td>
+                  <td className="px-5 py-3.5 text-sm text-foreground/55 hidden md:table-cell">{asset.assignee}</td>
+                  <td className="px-5 py-3.5">
+                    <span className={`
+                      text-xs font-medium px-2.5 py-1 rounded-full
+                      ${asset.status === "Active" ? "bg-foreground/[0.06] text-foreground/60" : ""}
+                      ${asset.status === "Pending" ? "bg-amber-500/10 text-amber-600" : ""}
+                      ${asset.status === "Available" ? "bg-emerald-500/10 text-emerald-600" : ""}
+                    `}>
+                      {asset.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
 }
