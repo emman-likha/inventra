@@ -5,6 +5,7 @@ import { motion, AnimatePresence, Variants } from "framer-motion";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { fetchMyProfile } from "@/lib/api";
 import { KineticBackground } from "@/components/KineticBackground";
 import { FloatingDots } from "@/components/FloatingDots";
 import { LoadingScreen } from "@/components/LoadingScreen";
@@ -116,15 +117,14 @@ function SignInForm({ onAuthSuccess }: { onAuthSuccess: (path: string) => void }
     }
 
     if (data.user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .single();
-
-      if (profile?.role === "admin") {
-        onAuthSuccess("/admin/dashboard");
-      } else {
+      try {
+        const profile = await fetchMyProfile();
+        if (profile?.role === "admin") {
+          onAuthSuccess("/admin/dashboard");
+        } else {
+          onAuthSuccess("/dashboard");
+        }
+      } catch {
         onAuthSuccess("/dashboard");
       }
     }

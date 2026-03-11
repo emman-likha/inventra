@@ -1,18 +1,29 @@
+require("dotenv").config({ path: ".env.local" });
+
 const express = require("express");
 const cors = require("cors");
+
+const profilesRouter = require("./routes/profiles");
+const assetsRouter = require("./routes/assets");
+const departmentsRouter = require("./routes/departments");
 
 const app = express();
 
 app.use(cors({
-  origin: "http://localhost:3000"
+  origin: "http://localhost:3000",
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
 app.get("/api/health", (req, res) => {
-  res.json({ message: "Inventra API running 🚀" });
+  res.json({ message: "Inventra API running" });
 });
 
-app.listen(5000, () => {
-  console.log("Backend running on http://localhost:5000");
+app.use("/api/profiles", profilesRouter);
+app.use("/api/assets", assetsRouter);
+app.use("/api/departments", departmentsRouter);
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Backend running on http://localhost:${PORT}`);
 });

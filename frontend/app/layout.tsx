@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import SmoothScroll from "../components/SmoothScroll";
 import { Providers } from "@/components/Providers";
 import "./globals.css";
 
@@ -25,9 +24,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <Providers>
-          <SmoothScroll>
-            {children}
-          </SmoothScroll>
+          {children}
         </Providers>
       </body>
     </html>

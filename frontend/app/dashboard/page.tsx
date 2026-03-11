@@ -60,9 +60,9 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        <div className="border border-foreground/[0.08] rounded-2xl overflow-hidden">
+        <div className="border border-foreground/[0.08] rounded-2xl overflow-x-hidden overflow-y-auto max-h-[520px] scrollbar-hidden">
           <table className="w-full">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-background">
               <tr className="border-b border-foreground/[0.08]">
                 <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider">Name</th>
                 <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider hidden sm:table-cell">Category</th>

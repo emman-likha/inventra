@@ -2,13 +2,14 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
+import { fetchMyProfile } from "@/lib/api";
 import { Sidebar, SidebarItem } from "@/components/dashboard/Sidebar";
 
 const sidebarItems: SidebarItem[] = [
   { label: "Overview", href: "/dashboard", icon: "home" },
   { label: "My Assets", href: "/dashboard/assets", icon: "box" },
+  { label: "Departments", href: "/dashboard/departments", icon: "users" },
   { label: "Categories", href: "/dashboard/categories", icon: "tag" },
   { label: "Reports", href: "/dashboard/reports", icon: "chart" },
   { label: "Settings", href: "/dashboard/settings", icon: "settings" },
@@ -28,13 +29,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return;
       }
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("first_name, role")
-        .eq("id", session.user.id)
-        .single();
-
-      if (!profile) {
+      let profile;
+      try {
+        profile = await fetchMyProfile();
+      } catch {
         router.push("/login");
         return;
       }
@@ -57,19 +55,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push("/login");
   }, [router]);
 
-  if (loading || !authorized) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-foreground/20 text-sm"
-        >
-          Loading...
-        </motion.div>
-      </div>
-    );
-  }
+  if (loading || !authorized) return null;
 
   return (
     <div className="min-h-screen bg-background flex">

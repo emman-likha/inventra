@@ -3,7 +3,21 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { fetchAssets } from "@/lib/api";
+import { AddAssetModal } from "@/components/dashboard/AddAssetModal";
+import { ImportAssetModal } from "@/components/dashboard/ImportAssetModal";
+import { Dropdown } from "@/components/ui/Dropdown";
+
+interface Asset {
+  id: string;
+  name: string;
+  category: string;
+  location: string | null;
+  status: string;
+  value: number | null;
+  created_at: string;
+  created_by: string;
+}
 
 type SortField = "name" | "category" | "location" | "status" | "value" | "created_at";
 type SortDir = "asc" | "desc";
@@ -23,16 +37,6 @@ const STATUS_STYLES: Record<string, string> = {
   retired: "bg-foreground/[0.06] text-foreground/50",
 };
 
-async function fetchAssets() {
-  const { data, error } = await supabase
-    .from("assets")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-  return data ?? [];
-}
-
 const stagger = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
@@ -48,14 +52,16 @@ export default function MyAssetsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
-  const { data: assets = [], isLoading, isError } = useQuery({
+  const { data: assets = [], isLoading, isError } = useQuery<Asset[]>({
     queryKey: ["assets"],
     queryFn: fetchAssets,
   });
 
   const categories = useMemo(() => {
-    const cats = new Set(assets.map((a: { category: string }) => a.category));
+    const cats = new Set(assets.map((a) => a.category));
     return ["all", ...Array.from(cats).sort()];
   }, [assets]);
 
@@ -63,23 +69,23 @@ export default function MyAssetsPage() {
     let result = [...assets];
 
     if (statusFilter !== "all") {
-      result = result.filter((a: { status: string }) => a.status === statusFilter);
+      result = result.filter((a) => a.status === statusFilter);
     }
     if (categoryFilter !== "all") {
-      result = result.filter((a: { category: string }) => a.category === categoryFilter);
+      result = result.filter((a) => a.category === categoryFilter);
     }
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
-        (a: { name: string; category: string; location?: string }) =>
+        (a) =>
           a.name.toLowerCase().includes(q) ||
           a.category.toLowerCase().includes(q) ||
           (a.location && a.location.toLowerCase().includes(q))
       );
     }
-    result.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-      const aVal = a[sortField] ?? "";
-      const bVal = b[sortField] ?? "";
+    result.sort((a, b) => {
+      const aVal = a[sortField as keyof Asset] ?? "";
+      const bVal = b[sortField as keyof Asset] ?? "";
       if (typeof aVal === "number" && typeof bVal === "number") {
         return sortDir === "asc" ? aVal - bVal : bVal - aVal;
       }
@@ -127,46 +133,44 @@ export default function MyAssetsPage() {
       </motion.div>
 
       {/* Controls: Search + Filters */}
-      <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1">
-          <svg
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/30"
-            width="16" height="16" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search by name, category, or location..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-foreground/20 transition-colors"
-          />
+      <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-end gap-3 mb-6">
+        <div className="relative flex-1 w-full">
+          <label className="block text-xs font-medium text-foreground/40 mb-1.5 ml-1 select-none">Search Assets</label>
+          <div className="relative">
+            <svg
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/30"
+              width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Name, category, or location..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-foreground/20 transition-colors"
+            />
+          </div>
         </div>
 
-        <select
+        <Dropdown
+          label="Status"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground/20 transition-colors cursor-pointer appearance-none min-w-[150px]"
-        >
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-          ))}
-        </select>
+          onChange={setStatusFilter}
+          options={STATUS_OPTIONS.map(s => ({ value: s, label: STATUS_LABELS[s] }))}
+          className="w-full sm:w-[160px]"
+        />
 
-        <select
+        <Dropdown
+          label="Category"
           value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground/20 transition-colors cursor-pointer appearance-none min-w-[150px]"
-        >
-          {categories.map((c) => (
-            <option key={c} value={c}>
-              {c === "all" ? "All Categories" : c}
-            </option>
-          ))}
-        </select>
+          onChange={setCategoryFilter}
+          options={categories}
+          placeholder="All Categories"
+          className="w-full sm:w-[180px]"
+        />
       </motion.div>
 
       {/* Results count */}
@@ -188,87 +192,138 @@ export default function MyAssetsPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <svg
-              className="text-foreground/15 mb-4"
-              width="48" height="48" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-            >
-              <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-              <line x1="12" y1="22.08" x2="12" y2="12" />
-            </svg>
-            <p className="text-sm text-foreground/40">No assets found</p>
-            <p className="text-xs text-foreground/25 mt-1">Try adjusting your filters or search term.</p>
+            <div className="w-16 h-16 rounded-2xl bg-foreground/[0.03] border border-foreground/[0.08] flex items-center justify-center mb-5">
+              <svg
+                className="text-foreground/20"
+                width="28" height="28" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
+              </svg>
+            </div>
+            <p className="text-sm font-medium text-foreground/50">No assets found</p>
+            <p className="text-xs text-foreground/30 mt-1 mb-6">Get started by adding your first asset or importing from a file.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setAddModalOpen(true)}
+                className="flex items-center gap-2 bg-foreground text-background px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Add Asset
+              </button>
+              <button
+                onClick={() => setImportModalOpen(true)}
+                className="flex items-center gap-2 bg-foreground/[0.03] border border-foreground/[0.08] text-foreground/70 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-foreground/[0.06] transition-colors cursor-pointer"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                Import Assets
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="border border-foreground/[0.08] rounded-2xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-foreground/[0.08]">
-                    {([
-                      ["name", "Name"],
-                      ["category", "Category"],
-                      ["location", "Location"],
-                      ["status", "Status"],
-                      ["value", "Value"],
-                      ["created_at", "Date Added"],
-                    ] as [SortField, string][]).map(([field, label]) => (
-                      <th
-                        key={field}
-                        onClick={() => handleSort(field)}
-                        className={`text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider cursor-pointer hover:text-foreground/70 transition-colors select-none whitespace-nowrap ${
-                          field === "location" ? "hidden md:table-cell" : ""
+          <div className="border border-foreground/[0.08] rounded-2xl overflow-x-hidden overflow-y-auto max-h-[520px] scrollbar-hidden">
+            <table className="w-full">
+              <thead className="sticky top-0 z-10 bg-background">
+                <tr className="border-b border-foreground/[0.08]">
+                  {([
+                    ["name", "Name"],
+                    ["category", "Category"],
+                    ["location", "Location"],
+                    ["status", "Status"],
+                    ["value", "Value"],
+                    ["created_at", "Date Added"],
+                  ] as [SortField, string][]).map(([field, label]) => (
+                    <th
+                      key={field}
+                      onClick={() => handleSort(field)}
+                      className={`text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider cursor-pointer hover:text-foreground/70 transition-colors select-none whitespace-nowrap ${field === "location" ? "hidden md:table-cell" : ""
                         } ${field === "created_at" ? "hidden lg:table-cell" : ""}`}
-                      >
-                        {label}
-                        <SortIcon field={field} />
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((asset: Record<string, unknown>) => (
-                    <tr
-                      key={asset.id as string}
-                      className="border-b border-foreground/[0.06] last:border-0 hover:bg-foreground/[0.03] transition-colors"
                     >
-                      <td className="px-5 py-3.5 text-sm font-medium text-foreground whitespace-nowrap">
-                        {asset.name as string}
-                      </td>
-                      <td className="px-5 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
-                        {asset.category as string}
-                      </td>
-                      <td className="px-5 py-3.5 text-sm text-foreground/55 hidden md:table-cell whitespace-nowrap">
-                        {(asset.location as string) || "—"}
-                      </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap">
-                        <span
-                          className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                            STATUS_STYLES[asset.status as string] ?? ""
-                          }`}
-                        >
-                          {STATUS_LABELS[asset.status as string] ?? (asset.status as string)}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
-                        {formatCurrency(asset.value as number | null)}
-                      </td>
-                      <td className="px-5 py-3.5 text-xs text-foreground/40 hidden lg:table-cell whitespace-nowrap">
-                        {new Date(asset.created_at as string).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </td>
-                    </tr>
+                      {label}
+                      <SortIcon field={field} />
+                    </th>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((asset) => (
+                  <tr
+                    key={asset.id}
+                    className="border-b border-foreground/[0.06] last:border-0 hover:bg-foreground/[0.03] transition-colors"
+                  >
+                    <td className="px-5 py-3.5 text-sm font-medium text-foreground whitespace-nowrap">
+                      {asset.name}
+                    </td>
+                    <td className="px-5 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                      {asset.category}
+                    </td>
+                    <td className="px-5 py-3.5 text-sm text-foreground/55 hidden md:table-cell whitespace-nowrap">
+                      {asset.location || "—"}
+                    </td>
+                    <td className="px-5 py-3.5 whitespace-nowrap">
+                      <span
+                        className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[asset.status] ?? ""
+                          }`}
+                      >
+                        {STATUS_LABELS[asset.status] ?? asset.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                      {formatCurrency(asset.value)}
+                    </td>
+                    <td className="px-5 py-3.5 text-xs text-foreground/40 hidden lg:table-cell whitespace-nowrap">
+                      {new Date(asset.created_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </motion.div>
+
+      {/* Action buttons below table */}
+      {!isLoading && !isError && assets.length > 0 && (
+        <motion.div variants={fadeUp} className="flex gap-3 mt-4">
+          <button
+            onClick={() => setAddModalOpen(true)}
+            className="flex items-center gap-2 bg-foreground text-background px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Add Asset
+          </button>
+          <button
+            onClick={() => setImportModalOpen(true)}
+            className="flex items-center gap-2 bg-foreground/[0.03] border border-foreground/[0.08] text-foreground/70 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-foreground/[0.06] transition-colors cursor-pointer"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Import Assets
+          </button>
+        </motion.div>
+      )}
+
+      <AddAssetModal open={addModalOpen} onClose={() => setAddModalOpen(false)} />
+      <ImportAssetModal open={importModalOpen} onClose={() => setImportModalOpen(false)} />
     </motion.div>
   );
 }

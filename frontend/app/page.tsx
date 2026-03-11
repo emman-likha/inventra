@@ -10,9 +10,11 @@ import Pricing from "@/components/sections/Pricing";
 import Testimonials from "@/components/sections/Testimonials";
 import FinalCTA from "@/components/sections/FinalCTA";
 import Footer from "@/components/sections/Footer";
+import SmoothScroll from "@/components/SmoothScroll";
 
 export default function Home() {
   return (
+    <SmoothScroll>
     <div id="top" className="w-full min-h-screen">
       <Navbar />
       <Hero />
@@ -27,5 +29,6 @@ export default function Home() {
       <FinalCTA />
       <Footer />
     </div>
+    </SmoothScroll>
   );
 }
