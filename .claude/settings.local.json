@@ -5,7 +5,24 @@
       "Bash(npm install:*)",
       "Bash(npx tsc:*)",
       "Bash(ls:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5000/api/profiles/me 2>/dev/null || echo \"Backend not reachable\")",
+      "Bash(find \"C:/Users/John - ShoreAgents/Documents/Github/inventra\" -name \"*.sql\" -type f 2>/dev/null | head -20)",
+      "Bash(grep -r \"assigned_to\\\\|checkout\\\\|assignment\" \"C:/Users/John - ShoreAgents/Documents/Github/inventra/frontend\" --include=\"*.tsx\" --include=\"*.ts\" 2>/dev/null | head -30)",
+      "Bash(find \"C:\\\\Users\\\\John - ShoreAgents\\\\Documents\\\\Github\\\\inventra\\\\frontend\\\\app\" -type f \\\\\\( -name \"*provider*\" -o -name \"client.tsx\" \\\\\\) 2>/dev/null | head -20)",
+      "Bash(cd \"C:/Users/John - ShoreAgents/Documents/Github/inventra/frontend\" && npm uninstall @tanstack/react-query-devtools 2>&1 | tail -3)",
+      "Bash(find \"C:/Users/John - ShoreAgents/Documents/Github/inventra/frontend/node_modules/next\" -name \"*proxy*\" -type f 2>/dev/null | head -20)",
+      "Bash(grep -r \"proxy\\\\\\\\.ts\\\\|proxy\\\\\\\\.js\" \"C:/Users/John - ShoreAgents/Documents/Github/inventra/frontend/node_modules/next/dist\" --include=\"*.d.ts\" --include=\"*.ts\" 2>/dev/null | head -20)",
+      "Bash(find \"C:/Users/John - ShoreAgents/Documents/Github/inventra/frontend/node_modules/next\" -name \"*.d.ts\" -type f | xargs grep -l \"middleware\\\\|proxy\" | head -10)",
+      "Bash(ls -la \"C:/Users/John - ShoreAgents/Documents/Github/inventra/frontend/node_modules/next\" | grep -E \"\\\\.d\\\\.ts|\\\\.ts$\" | head -20)",
+      "Bash(find \"C:/Users/John - ShoreAgents/Documents/Github/inventra/frontend/node_modules/next\" -name \"*.md\" -type f | xargs grep -l \"proxy\\\\|Proxy\" 2>/dev/null | head -5)",
+      "Bash(grep -r \"proxy\\\\\\\\.ts\\\\|proxy\\\\\\\\.js\\\\|proxy\\\\\\\\.\" \"C:/Users/John - ShoreAgents/Documents/Github/inventra/frontend/node_modules/next/dist/build\" --include=\"*.js\" --include=\"*.d.ts\" 2>/dev/null | head -20)",
+      "Bash(grep -r \"proxy\\\\\\\\.ts\\\\|proxy\\\\\\\\.js\" \"C:/Users/John - ShoreAgents/Documents/Github/inventra/frontend/node_modules/next/dist/lib\" --include=\"*.js\" --include=\"*.d.ts\" 2>/dev/null | head -10)",
+      "Bash(grep -r \"proxy\\\\.ts\\\\|proxy\\\\.js\" \"C:/Users/John - ShoreAgents/Documents/Github/inventra/frontend/node_modules/next/dist\" --include=\"*.js\" 2>/dev/null | grep -v \"\\\\.map\\\\|\\\\.nft\\\\|object-proxy\\\\|module-proxy\\\\|flight.*proxy\\\\|node_modules\" | head -20)",
+      "Bash(grep -r \"middleware\\\\\\\\.ts\\\\|middleware\\\\\\\\.js\" \"C:/Users/John - ShoreAgents/Documents/Github/inventra/frontend/node_modules/next/dist/build\" --include=\"*.js\" --include=\"*.d.ts\" 2>/dev/null | grep -v \"\\\\.map\" | head -15)",
+      "Bash(grep -r \"find.*proxy\\\\|proxy.*find\\\\|collectMiddleware\\\\|'proxy'\" \"C:/Users/John - ShoreAgents/Documents/Github/inventra/frontend/node_modules/next/dist\" --include=\"*.js\" --include=\"*.d.ts\" 2>/dev/null | grep -v \"\\\\.map\\\\|node_modules\" | head -20)",
+      "Bash(grep -r \"MIDDLEWARE_FILENAME\\\\|middleware.*FILENAME\" \"C:/Users/John - ShoreAgents/Documents/Github/inventra/frontend/node_modules/next/dist\" --include=\"*.js\" 2>/dev/null | grep -v \"\\\\.map\" | head -10)",
+      "WebSearch"
     ]
   }
 }

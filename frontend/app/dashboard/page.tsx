@@ -1,6 +1,26 @@
 "use client";
 
+import { useMemo } from "react";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { fetchAssets, fetchDepartments } from "@/lib/api";
+
+interface Asset {
+  id: string;
+  name: string;
+  category: string;
+  location: string | null;
+  status: string;
+  value: number | null;
+  assigned_to: string | null;
+  created_at: string;
+}
+
+interface Department {
+  id: string;
+  name: string;
+  member_count: number;
+}
 
 const stagger = {
   hidden: { opacity: 0 },
@@ -15,7 +35,42 @@ const fadeUp = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  available: "Available",
+  checked_out: "Checked Out",
+  maintenance: "Maintenance",
+  retired: "Retired",
+};
+
+const STATUS_STYLES: Record<string, string> = {
+  available: "bg-emerald-500/10 text-emerald-600",
+  checked_out: "bg-blue-500/10 text-blue-600",
+  maintenance: "bg-amber-500/10 text-amber-600",
+  retired: "bg-foreground/[0.06] text-foreground/50",
+};
+
 export default function DashboardPage() {
+  const { data: assets = [], isLoading: assetsLoading } = useQuery<Asset[]>({
+    queryKey: ["assets"],
+    queryFn: fetchAssets,
+  });
+
+  const { data: departments = [], isLoading: deptsLoading } = useQuery<Department[]>({
+    queryKey: ["departments"],
+    queryFn: fetchDepartments,
+  });
+
+  const stats = useMemo(() => {
+    const total = assets.length;
+    const checkedOut = assets.filter((a) => a.status === "checked_out").length;
+    const categories = new Set(assets.map((a) => a.category)).size;
+    const maintenance = assets.filter((a) => a.status === "maintenance").length;
+    return { total, checkedOut, categories, maintenance };
+  }, [assets]);
+
+  const recentAssets = useMemo(() => assets.slice(0, 5), [assets]);
+  const isLoading = assetsLoading || deptsLoading;
+
   return (
     <motion.div variants={stagger} initial="hidden" animate="visible">
       {/* Header */}
@@ -31,10 +86,10 @@ export default function DashboardPage() {
       {/* Stat cards */}
       <motion.div variants={fadeUp} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         {[
-          { label: "Total Assets", value: "48", change: "+3 this week" },
-          { label: "Checked Out", value: "12", change: "25% of total" },
-          { label: "Categories", value: "6", change: "2 most used" },
-          { label: "Pending", value: "3", change: "Awaiting approval" },
+          { label: "Total Assets", value: isLoading ? "—" : String(stats.total), sub: `${departments.length} departments` },
+          { label: "Checked Out", value: isLoading ? "—" : String(stats.checkedOut), sub: stats.total > 0 ? `${Math.round((stats.checkedOut / stats.total) * 100)}% of total` : "0% of total" },
+          { label: "Categories", value: isLoading ? "—" : String(stats.categories), sub: "Unique types" },
+          { label: "Maintenance", value: isLoading ? "—" : String(stats.maintenance), sub: "Needs attention" },
         ].map((stat, i) => (
           <div
             key={i}
@@ -46,7 +101,7 @@ export default function DashboardPage() {
             <p className="text-2xl font-bold text-foreground tracking-tight group-hover:translate-x-0.5 transition-transform">
               {stat.value}
             </p>
-            <p className="text-foreground/40 text-xs mt-1">{stat.change}</p>
+            <p className="text-foreground/40 text-xs mt-1">{stat.sub}</p>
           </div>
         ))}
       </motion.div>
@@ -55,51 +110,47 @@ export default function DashboardPage() {
       <motion.div variants={fadeUp}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-foreground tracking-tight">Recent Assets</h2>
-          <button className="text-xs font-medium text-foreground/50 hover:text-foreground/70 transition-colors">
-            View all
-          </button>
         </div>
 
-        <div className="border border-foreground/[0.08] rounded-2xl overflow-x-hidden overflow-y-auto max-h-[520px] scrollbar-hidden">
-          <table className="w-full">
-            <thead className="sticky top-0 z-10 bg-background">
-              <tr className="border-b border-foreground/[0.08]">
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider">Name</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider hidden sm:table-cell">Category</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider hidden md:table-cell">Assigned To</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                { name: "MacBook Pro 14\"", category: "Laptops", assignee: "You", status: "Active" },
-                { name: "Dell Monitor 27\"", category: "Monitors", assignee: "You", status: "Active" },
-                { name: "Logitech MX Keys", category: "Peripherals", assignee: "You", status: "Active" },
-                { name: "Standing Desk", category: "Furniture", assignee: "You", status: "Pending" },
-                { name: "Webcam C920", category: "Peripherals", assignee: "—", status: "Available" },
-              ].map((asset, i) => (
-                <tr
-                  key={i}
-                  className="border-b border-foreground/[0.06] last:border-0 hover:bg-foreground/[0.03] transition-colors"
-                >
-                  <td className="px-5 py-3.5 text-sm font-medium text-foreground">{asset.name}</td>
-                  <td className="px-5 py-3.5 text-sm text-foreground/55 hidden sm:table-cell">{asset.category}</td>
-                  <td className="px-5 py-3.5 text-sm text-foreground/55 hidden md:table-cell">{asset.assignee}</td>
-                  <td className="px-5 py-3.5">
-                    <span className={`
-                      text-xs font-medium px-2.5 py-1 rounded-full
-                      ${asset.status === "Active" ? "bg-foreground/[0.06] text-foreground/60" : ""}
-                      ${asset.status === "Pending" ? "bg-amber-500/10 text-amber-600" : ""}
-                      ${asset.status === "Available" ? "bg-emerald-500/10 text-emerald-600" : ""}
-                    `}>
-                      {asset.status}
-                    </span>
-                  </td>
+        {assetsLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <p className="text-sm text-foreground/40">Loading assets...</p>
+          </div>
+        ) : recentAssets.length === 0 ? (
+          <div className="flex items-center justify-center py-16">
+            <p className="text-sm text-foreground/40">No assets yet.</p>
+          </div>
+        ) : (
+          <div className="border border-foreground/[0.08] rounded-2xl overflow-x-hidden overflow-y-auto max-h-[520px] scrollbar-hidden">
+            <table className="w-full">
+              <thead className="sticky top-0 z-10 bg-background">
+                <tr className="border-b border-foreground/[0.08]">
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider">Name</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider hidden sm:table-cell">Category</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider hidden md:table-cell">Location</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {recentAssets.map((asset) => (
+                  <tr
+                    key={asset.id}
+                    className="border-b border-foreground/[0.06] last:border-0 hover:bg-foreground/[0.03] transition-colors"
+                  >
+                    <td className="px-5 py-3.5 text-sm font-medium text-foreground">{asset.name}</td>
+                    <td className="px-5 py-3.5 text-sm text-foreground/55 hidden sm:table-cell">{asset.category}</td>
+                    <td className="px-5 py-3.5 text-sm text-foreground/55 hidden md:table-cell">{asset.location || "—"}</td>
+                    <td className="px-5 py-3.5">
+                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[asset.status] ?? ""}`}>
+                        {STATUS_LABELS[asset.status] ?? asset.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </motion.div>
     </motion.div>
   );

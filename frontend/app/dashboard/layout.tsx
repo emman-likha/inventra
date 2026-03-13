@@ -22,32 +22,48 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    let cancelled = false;
+
+    async function checkAuth(session: import("@supabase/supabase-js").Session | null) {
       if (!session) {
         router.push("/login");
         return;
       }
 
-      let profile;
       try {
-        profile = await fetchMyProfile();
-      } catch {
-        router.push("/login");
-        return;
+        const profile = await fetchMyProfile();
+        if (cancelled) return;
+        if (profile.role === "admin") {
+          router.push("/admin/dashboard");
+          return;
+        }
+        setUserName(profile.first_name || "User");
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Failed to fetch profile:", err);
+        setUserName("User");
       }
 
-      if (profile.role === "admin") {
-        router.push("/admin/dashboard");
-        return;
-      }
-
-      setUserName(profile.first_name || "User");
       setAuthorized(true);
       setLoading(false);
-    };
+    }
 
-    checkAuth();
+    // Check session immediately on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!cancelled) checkAuth(session);
+    });
+
+    // Also listen for auth state changes (sign-in, sign-out, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        checkAuth(session);
+      }
+    );
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, [router]);
 
   const handleSignOut = useCallback(async () => {

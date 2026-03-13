@@ -7,6 +7,7 @@ import { fetchAssets } from "@/lib/api";
 import { AddAssetModal } from "@/components/dashboard/AddAssetModal";
 import { ImportAssetModal } from "@/components/dashboard/ImportAssetModal";
 import { Dropdown } from "@/components/ui/Dropdown";
+import { ActionMenu } from "@/components/ui/ActionMenu";
 
 interface Asset {
   id: string;
@@ -245,13 +246,17 @@ export default function MyAssetsPage() {
                     <th
                       key={field}
                       onClick={() => handleSort(field)}
-                      className={`text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider cursor-pointer hover:text-foreground/70 transition-colors select-none whitespace-nowrap ${field === "location" ? "hidden md:table-cell" : ""
+                      className={`text-left pl-5 pr-2 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider cursor-pointer hover:text-foreground/70 transition-colors select-none whitespace-nowrap ${(field !== "name" && field !== "created_at") ? "w-[16%]" : ""
+                        } ${field === "location" ? "hidden md:table-cell" : ""
                         } ${field === "created_at" ? "hidden lg:table-cell" : ""}`}
                     >
                       {label}
                       <SortIcon field={field} />
                     </th>
                   ))}
+                  <th className="w-[52px] px-2 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider text-center select-none border-l border-foreground/[0.08]">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -260,16 +265,16 @@ export default function MyAssetsPage() {
                     key={asset.id}
                     className="border-b border-foreground/[0.06] last:border-0 hover:bg-foreground/[0.03] transition-colors"
                   >
-                    <td className="px-5 py-3.5 text-sm font-medium text-foreground whitespace-nowrap">
+                    <td className="pl-5 pr-2 py-3.5 text-sm font-medium text-foreground whitespace-nowrap">
                       {asset.name}
                     </td>
-                    <td className="px-5 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                    <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
                       {asset.category}
                     </td>
-                    <td className="px-5 py-3.5 text-sm text-foreground/55 hidden md:table-cell whitespace-nowrap">
+                    <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 hidden md:table-cell whitespace-nowrap">
                       {asset.location || "—"}
                     </td>
-                    <td className="px-5 py-3.5 whitespace-nowrap">
+                    <td className="pl-5 pr-2 py-3.5 whitespace-nowrap">
                       <span
                         className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[asset.status] ?? ""
                           }`}
@@ -277,15 +282,32 @@ export default function MyAssetsPage() {
                         {STATUS_LABELS[asset.status] ?? asset.status}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                    <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
                       {formatCurrency(asset.value)}
                     </td>
-                    <td className="px-5 py-3.5 text-xs text-foreground/40 hidden lg:table-cell whitespace-nowrap">
+                    <td className="pl-5 pr-2 py-3.5 text-xs text-foreground/40 hidden lg:table-cell whitespace-nowrap">
                       {new Date(asset.created_at).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
                         year: "numeric",
                       })}
+                    </td>
+                    <td className="px-2 py-3.5 text-center border-l border-foreground/[0.08]">
+                      <ActionMenu
+                        items={[
+                          {
+                            label: "Edit",
+                            icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>,
+                            onClick: () => console.log("Edit asset", asset.id),
+                          },
+                          {
+                            label: "Delete",
+                            icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>,
+                            onClick: () => console.log("Delete asset", asset.id),
+                            danger: true,
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}

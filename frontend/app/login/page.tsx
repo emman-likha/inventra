@@ -133,7 +133,7 @@ function SignInForm({ onAuthSuccess }: { onAuthSuccess: (path: string) => void }
   const handleGoogleSignIn = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/dashboard` },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
   };
 
@@ -270,7 +270,7 @@ function SignUpForm({ onAuthSuccess }: { onAuthSuccess: (path: string) => void }
   const handleGoogleSignUp = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/dashboard` },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
   };
 

@@ -1,6 +1,26 @@
 "use client";
 
+import { useMemo } from "react";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { fetchAssets, fetchDepartments } from "@/lib/api";
+
+interface Asset {
+  id: string;
+  name: string;
+  category: string;
+  location: string | null;
+  status: string;
+  value: number | null;
+  assigned_to: string | null;
+  created_at: string;
+}
+
+interface Department {
+  id: string;
+  name: string;
+  member_count: number;
+}
 
 const stagger = {
   hidden: { opacity: 0 },
@@ -15,7 +35,52 @@ const fadeUp = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  available: "Available",
+  checked_out: "Checked Out",
+  maintenance: "Maintenance",
+  retired: "Retired",
+};
+
+const STATUS_STYLES: Record<string, string> = {
+  available: "bg-emerald-500/10 text-emerald-600",
+  checked_out: "bg-blue-500/10 text-blue-600",
+  maintenance: "bg-amber-500/10 text-amber-600",
+  retired: "bg-foreground/[0.06] text-foreground/50",
+};
+
 export default function AdminDashboardPage() {
+  const { data: assets = [], isLoading: assetsLoading } = useQuery<Asset[]>({
+    queryKey: ["assets"],
+    queryFn: fetchAssets,
+  });
+
+  const { data: departments = [], isLoading: deptsLoading } = useQuery<Department[]>({
+    queryKey: ["departments"],
+    queryFn: fetchDepartments,
+  });
+
+  const stats = useMemo(() => {
+    const totalAssets = assets.length;
+    const checkedOut = assets.filter((a) => a.status === "checked_out").length;
+    const maintenance = assets.filter((a) => a.status === "maintenance").length;
+    const totalMembers = departments.reduce((sum, d) => sum + (d.member_count ?? 0), 0);
+    const totalValue = assets.reduce((sum, a) => sum + (a.value ?? 0), 0);
+    return { totalAssets, checkedOut, maintenance, totalMembers, totalValue };
+  }, [assets, departments]);
+
+  const recentAssets = useMemo(() => assets.slice(0, 5), [assets]);
+  const isLoading = assetsLoading || deptsLoading;
+
+  function formatCurrency(val: number) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(val);
+  }
+
   return (
     <motion.div variants={stagger} initial="hidden" animate="visible">
       {/* Header */}
@@ -31,10 +96,10 @@ export default function AdminDashboardPage() {
       {/* Stat cards */}
       <motion.div variants={fadeUp} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         {[
-          { label: "Total Assets", value: "892", sub: "+24 this month" },
-          { label: "Active Users", value: "124", sub: "8 new this week" },
-          { label: "Checked Out", value: "341", sub: "38% utilization" },
-          { label: "Pending Requests", value: "12", sub: "3 urgent" },
+          { label: "Total Assets", value: isLoading ? "—" : String(stats.totalAssets), sub: `${departments.length} departments` },
+          { label: "Total Members", value: isLoading ? "—" : String(stats.totalMembers), sub: `Across ${departments.length} departments` },
+          { label: "Checked Out", value: isLoading ? "—" : String(stats.checkedOut), sub: stats.totalAssets > 0 ? `${Math.round((stats.checkedOut / stats.totalAssets) * 100)}% utilization` : "0% utilization" },
+          { label: "Total Value", value: isLoading ? "—" : formatCurrency(stats.totalValue), sub: `${stats.maintenance} in maintenance` },
         ].map((stat, i) => (
           <div
             key={i}
@@ -53,88 +118,102 @@ export default function AdminDashboardPage() {
 
       {/* Two-column layout */}
       <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Recent activity — wider */}
+        {/* Recent assets — wider */}
         <div className="lg:col-span-3">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-bold text-foreground tracking-tight">Recent Activity</h2>
-            <button className="text-xs font-medium text-foreground/50 hover:text-foreground/70 transition-colors">
-              View log
-            </button>
+            <h2 className="text-lg font-bold text-foreground tracking-tight">Recent Assets</h2>
           </div>
 
-          <div className="border border-foreground/[0.08] rounded-2xl overflow-x-hidden overflow-y-auto max-h-[520px] scrollbar-hidden">
-            <table className="w-full">
-              <thead className="sticky top-0 z-10 bg-background">
-                <tr className="border-b border-foreground/[0.08]">
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider">User</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider hidden sm:table-cell">Action</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider">Asset</th>
-                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider hidden md:table-cell">Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { user: "Sarah K.", action: "Checked out", asset: "MacBook Pro 16\"", time: "2 min ago" },
-                  { user: "Mike R.", action: "Returned", asset: "Dell Monitor", time: "15 min ago" },
-                  { user: "Anna L.", action: "Requested", asset: "Standing Desk", time: "1 hr ago" },
-                  { user: "James T.", action: "Checked out", asset: "iPad Pro", time: "2 hrs ago" },
-                  { user: "Lisa M.", action: "Reported issue", asset: "Logitech Mouse", time: "3 hrs ago" },
-                ].map((entry, i) => (
-                  <tr
-                    key={i}
-                    className="border-b border-foreground/[0.06] last:border-0 hover:bg-foreground/[0.03] transition-colors"
-                  >
-                    <td className="px-5 py-3.5 text-sm font-medium text-foreground">{entry.user}</td>
-                    <td className="px-5 py-3.5 text-sm text-foreground/55 hidden sm:table-cell">{entry.action}</td>
-                    <td className="px-5 py-3.5 text-sm text-foreground/55">{entry.asset}</td>
-                    <td className="px-5 py-3.5 text-xs text-foreground/40 hidden md:table-cell">{entry.time}</td>
+          {assetsLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <p className="text-sm text-foreground/40">Loading...</p>
+            </div>
+          ) : recentAssets.length === 0 ? (
+            <div className="flex items-center justify-center py-16">
+              <p className="text-sm text-foreground/40">No assets yet.</p>
+            </div>
+          ) : (
+            <div className="border border-foreground/[0.08] rounded-2xl overflow-x-hidden overflow-y-auto max-h-[520px] scrollbar-hidden">
+              <table className="w-full">
+                <thead className="sticky top-0 z-10 bg-background">
+                  <tr className="border-b border-foreground/[0.08]">
+                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider">Name</th>
+                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider hidden sm:table-cell">Category</th>
+                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider">Status</th>
+                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider hidden md:table-cell">Date</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {recentAssets.map((asset) => (
+                    <tr
+                      key={asset.id}
+                      className="border-b border-foreground/[0.06] last:border-0 hover:bg-foreground/[0.03] transition-colors"
+                    >
+                      <td className="px-5 py-3.5 text-sm font-medium text-foreground">{asset.name}</td>
+                      <td className="px-5 py-3.5 text-sm text-foreground/55 hidden sm:table-cell">{asset.category}</td>
+                      <td className="px-5 py-3.5">
+                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[asset.status] ?? ""}`}>
+                          {STATUS_LABELS[asset.status] ?? asset.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-xs text-foreground/40 hidden md:table-cell">
+                        {new Date(asset.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
-        {/* Pending requests — narrower */}
+        {/* Departments — narrower */}
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-bold text-foreground tracking-tight">Pending Requests</h2>
+            <h2 className="text-lg font-bold text-foreground tracking-tight">Departments</h2>
             <span className="text-[11px] font-bold bg-foreground/[0.08] text-foreground/60 px-2.5 py-1 rounded-full">
-              12
+              {departments.length}
             </span>
           </div>
 
-          <div className="flex flex-col gap-3">
-            {[
-              { user: "Anna L.", asset: "Standing Desk", type: "Checkout" },
-              { user: "Tom W.", asset: "Webcam C920", type: "Checkout" },
-              { user: "Sarah K.", asset: "USB-C Hub", type: "Return" },
-              { user: "James T.", asset: "Monitor Arm", type: "Checkout" },
-            ].map((req, i) => (
-              <div
-                key={i}
-                className="bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl p-4 hover:bg-foreground/[0.06] transition-colors"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{req.user}</p>
-                    <p className="text-xs text-foreground/45 mt-0.5">{req.asset}</p>
+          {deptsLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <p className="text-sm text-foreground/40">Loading...</p>
+            </div>
+          ) : departments.length === 0 ? (
+            <div className="flex items-center justify-center py-16">
+              <p className="text-sm text-foreground/40">No departments yet.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {departments.map((dept) => (
+                <div
+                  key={dept.id}
+                  className="bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl p-4 hover:bg-foreground/[0.06] transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{dept.name}</p>
+                      <p className="text-xs text-foreground/45 mt-0.5">
+                        {dept.member_count ?? 0} {(dept.member_count ?? 0) === 1 ? "member" : "members"}
+                      </p>
+                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-foreground/[0.06] flex items-center justify-center shrink-0">
+                      <svg className="text-foreground/30" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 00-3-3.87" />
+                        <path d="M16 3.13a4 4 0 010 7.75" />
+                      </svg>
+                    </div>
                   </div>
-                  <span className="text-[11px] font-medium text-foreground/45 bg-foreground/[0.06] px-2 py-0.5 rounded-md">
-                    {req.type}
-                  </span>
                 </div>
-                <div className="flex gap-2 mt-3">
-                  <button className="flex-1 bg-foreground text-background text-xs font-medium py-2 rounded-lg hover:opacity-90 transition-opacity">
-                    Approve
-                  </button>
-                  <button className="flex-1 border border-foreground/[0.10] text-foreground/60 text-xs font-medium py-2 rounded-lg hover:bg-foreground/[0.05] transition-colors">
-                    Decline
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </motion.div>
     </motion.div>

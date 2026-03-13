@@ -139,7 +139,7 @@ export function Sidebar({ items, role, userName, onSignOut }: SidebarProps) {
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="px-6 pt-8 pb-8">
-        <Link href="/" className="text-lg font-bold tracking-tighter text-foreground">
+        <Link href="/" className="text-4xl font-bold tracking-tighter text-foreground">
           INVENTRA.
         </Link>
         {role === "admin" && (

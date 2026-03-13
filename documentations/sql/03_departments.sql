@@ -7,6 +7,9 @@ CREATE TABLE IF NOT EXISTS public.departments (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Add members column to store names of people in the department
+ALTER TABLE public.departments ADD COLUMN IF NOT EXISTS members TEXT[] DEFAULT '{}';
+
 -- Add department_id to profiles
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS department_id UUID REFERENCES public.departments(id) ON DELETE SET NULL;
 
