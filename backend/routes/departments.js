@@ -88,6 +88,26 @@ router.get("/:id", requireAuth, async (req, res) => {
   res.json(result);
 });
 
+// PUT /api/departments/:id — update a department
+router.put("/:id", requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: "Name is required." });
+  }
+
+  const { data, error } = await supabase
+    .from("departments")
+    .update({ name: name.trim() })
+    .eq("id", id)
+    .select();
+
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data || data.length === 0) return res.status(404).json({ error: "Department not found." });
+  res.json(data[0]);
+});
+
 // DELETE /api/departments — bulk delete departments by ids
 router.delete("/", requireAuth, async (req, res) => {
   const { ids } = req.body;

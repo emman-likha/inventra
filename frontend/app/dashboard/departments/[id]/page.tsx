@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { fetchDepartment, fetchMembers, deleteMembers, type Member } from "@/lib/api";
 import { AddMemberModal } from "@/components/dashboard/AddMemberModal";
 import { ImportMemberModal } from "@/components/dashboard/ImportMemberModal";
+import { EditMemberModal } from "@/components/dashboard/EditMemberModal";
 import { ActionMenu } from "@/components/ui/ActionMenu";
 
 interface Department {
@@ -31,6 +32,7 @@ export default function DepartmentDetailPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sortField, setSortField] = useState<SortField>("first_name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [editMember, setEditMember] = useState<Member | null>(null);
 
   const { data: department, isLoading, isError } = useQuery<Department>({
     queryKey: ["department", id],
@@ -377,12 +379,12 @@ export default function DepartmentDetailPage() {
                           {
                             label: "Edit",
                             icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>,
-                            onClick: () => console.log("Edit member", member.id),
+                            onClick: () => setEditMember(member),
                           },
                           {
                             label: "Remove",
                             icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>,
-                            onClick: () => console.log("Remove member", member.id),
+                            onClick: () => deleteMutation.mutate([member.id]),
                             danger: true,
                           },
                         ]}
@@ -432,6 +434,7 @@ export default function DepartmentDetailPage() {
 
       <AddMemberModal open={addMemberOpen} onClose={() => setAddMemberOpen(false)} departmentId={id} />
       <ImportMemberModal open={importMemberOpen} onClose={() => setImportMemberOpen(false)} departmentId={id} />
+      <EditMemberModal open={!!editMember} onClose={() => setEditMember(null)} member={editMember} departmentId={id} />
     </motion.div>
   );
 }

@@ -9,6 +9,7 @@ import { Sidebar, SidebarItem } from "@/components/dashboard/Sidebar";
 const sidebarItems: SidebarItem[] = [
   { label: "Overview", href: "/dashboard", icon: "home" },
   { label: "My Assets", href: "/dashboard/assets", icon: "box" },
+  { label: "Inventory", href: "/dashboard/inventory", icon: "clipboard" },
   { label: "Departments", href: "/dashboard/departments", icon: "users" },
   { label: "Categories", href: "/dashboard/categories", icon: "tag" },
   { label: "Reports", href: "/dashboard/reports", icon: "chart" },

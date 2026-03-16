@@ -91,6 +91,22 @@ export async function importAssets(assets: {
   return handleResponse(res);
 }
 
+export async function updateAsset(id: string, updates: Partial<{
+  name: string;
+  category: string;
+  location: string | null;
+  status: string;
+  value: number | null;
+}>) {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/assets/${id}`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(updates),
+  });
+  return handleResponse(res);
+}
+
 export async function deleteAssets(ids: string[]) {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/assets`, {
@@ -135,9 +151,99 @@ export async function importDepartments(departments: { name: string }[]) {
   return handleResponse(res);
 }
 
+export async function updateDepartment(id: string, updates: { name: string }) {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/departments/${id}`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(updates),
+  });
+  return handleResponse(res);
+}
+
 export async function deleteDepartments(ids: string[]) {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/departments`, {
+    method: "DELETE",
+    headers,
+    body: JSON.stringify({ ids }),
+  });
+  return handleResponse(res);
+}
+
+// ── Inventories (stock / consumables) ─────────────────
+
+export interface Inventory {
+  id: string;
+  name: string;
+  category: string | null;
+  quantity: number;
+  min_quantity: number;
+  unit: string;
+  cost_per_unit: number | null;
+  location: string | null;
+  description: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InventoryInput {
+  name: string;
+  category?: string | null;
+  quantity?: number;
+  min_quantity?: number;
+  unit?: string;
+  cost_per_unit?: number | null;
+  location?: string | null;
+  description?: string | null;
+}
+
+export async function fetchInventories() {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/inventories`, { headers });
+  return handleResponse(res);
+}
+
+export async function fetchInventory(id: string) {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/inventories/${id}`, { headers });
+  return handleResponse(res);
+}
+
+export async function createInventory(inventory: InventoryInput) {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/inventories`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(inventory),
+  });
+  return handleResponse(res);
+}
+
+export async function importInventories(inventories: InventoryInput[]) {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/inventories/import`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ inventories }),
+  });
+  return handleResponse(res);
+}
+
+export async function updateInventory(id: string, updates: Partial<InventoryInput>) {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/inventories/${id}`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(updates),
+  });
+  return handleResponse(res);
+}
+
+export async function deleteInventories(ids: string[]) {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/inventories`, {
     method: "DELETE",
     headers,
     body: JSON.stringify({ ids }),
