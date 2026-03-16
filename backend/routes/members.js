@@ -123,6 +123,23 @@ router.put("/:id", requireAuth, async (req, res) => {
   res.json(data[0]);
 });
 
+// DELETE /api/members/bulk — bulk delete members by ids
+router.delete("/bulk", requireAuth, async (req, res) => {
+  const { ids } = req.body;
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: "ids array is required." });
+  }
+
+  const { error } = await supabase
+    .from("members")
+    .delete()
+    .in("id", ids);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true, deleted: ids.length });
+});
+
 // DELETE /api/members/:id — delete a member
 router.delete("/:id", requireAuth, async (req, res) => {
   const { id } = req.params;

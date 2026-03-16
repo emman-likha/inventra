@@ -88,4 +88,21 @@ router.get("/:id", requireAuth, async (req, res) => {
   res.json(result);
 });
 
+// DELETE /api/departments — bulk delete departments by ids
+router.delete("/", requireAuth, async (req, res) => {
+  const { ids } = req.body;
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: "ids array is required." });
+  }
+
+  const { error } = await supabase
+    .from("departments")
+    .delete()
+    .in("id", ids);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true, deleted: ids.length });
+});
+
 module.exports = router;

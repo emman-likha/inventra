@@ -91,6 +91,16 @@ export async function importAssets(assets: {
   return handleResponse(res);
 }
 
+export async function deleteAssets(ids: string[]) {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/assets`, {
+    method: "DELETE",
+    headers,
+    body: JSON.stringify({ ids }),
+  });
+  return handleResponse(res);
+}
+
 // ── Departments ────────────────────────────────────────
 
 export async function fetchDepartments() {
@@ -121,6 +131,16 @@ export async function importDepartments(departments: { name: string }[]) {
     method: "POST",
     headers,
     body: JSON.stringify({ departments }),
+  });
+  return handleResponse(res);
+}
+
+export async function deleteDepartments(ids: string[]) {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/departments`, {
+    method: "DELETE",
+    headers,
+    body: JSON.stringify({ ids }),
   });
   return handleResponse(res);
 }
@@ -165,6 +185,16 @@ export async function importMembers(members: MemberInput[]) {
     method: "POST",
     headers,
     body: JSON.stringify({ members }),
+  });
+  return handleResponse(res);
+}
+
+export async function deleteMembers(ids: string[]) {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/members/bulk`, {
+    method: "DELETE",
+    headers,
+    body: JSON.stringify({ ids }),
   });
   return handleResponse(res);
 }

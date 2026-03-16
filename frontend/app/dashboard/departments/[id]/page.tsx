@@ -2,9 +2,9 @@
 
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { fetchDepartment, fetchMembers, type Member } from "@/lib/api";
+import { fetchDepartment, fetchMembers, deleteMembers, type Member } from "@/lib/api";
 import { AddMemberModal } from "@/components/dashboard/AddMemberModal";
 import { ImportMemberModal } from "@/components/dashboard/ImportMemberModal";
 import { ActionMenu } from "@/components/ui/ActionMenu";
@@ -23,10 +23,12 @@ type SortDir = "asc" | "desc";
 export default function DepartmentDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const id = params.id as string;
   const [search, setSearch] = useState("");
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [importMemberOpen, setImportMemberOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sortField, setSortField] = useState<SortField>("first_name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -40,6 +42,15 @@ export default function DepartmentDetailPage() {
     queryKey: ["members", id],
     queryFn: () => fetchMembers(id),
     enabled: !!id,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (ids: string[]) => deleteMembers(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["members", id] });
+      queryClient.invalidateQueries({ queryKey: ["department", id] });
+      setSelectedIds(new Set());
+    },
   });
 
   const filtered = useMemo(() => {
@@ -79,6 +90,26 @@ export default function DepartmentDetailPage() {
   function SortIcon({ field }: { field: SortField }) {
     if (sortField !== field) return <span className="ml-1 text-foreground/20">↕</span>;
     return <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>;
+  }
+
+  const allSelected = filtered.length > 0 && filtered.every((m) => selectedIds.has(m.id));
+  const someSelected = filtered.some((m) => selectedIds.has(m.id));
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((m) => m.id)));
+    }
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   if (isLoading) {
@@ -184,10 +215,30 @@ export default function DepartmentDetailPage() {
         transition={{ duration: 0.4, delay: 0.12 }}
       >
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-foreground tracking-tight">Members</h2>
-          <span className="text-[11px] font-bold bg-foreground/[0.08] text-foreground/60 px-2.5 py-1 rounded-full">
-            {members.length}
-          </span>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold text-foreground tracking-tight">Members</h2>
+            <span className="text-[11px] font-bold bg-foreground/[0.08] text-foreground/60 px-2.5 py-1 rounded-full">
+              {members.length}
+            </span>
+            {selectedIds.size > 0 && (
+              <span className="text-xs text-foreground/60 font-medium">
+                ({selectedIds.size} selected)
+              </span>
+            )}
+          </div>
+          {selectedIds.size > 0 && (
+            <button
+              onClick={() => deleteMutation.mutate([...selectedIds])}
+              disabled={deleteMutation.isPending}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+              </svg>
+              Delete Selected ({selectedIds.size})
+            </button>
+          )}
         </div>
 
         {/* Search members */}
@@ -254,6 +305,15 @@ export default function DepartmentDetailPage() {
             <table className="w-full">
               <thead className="sticky top-0 z-10 bg-background">
                 <tr className="border-b border-foreground/[0.08]">
+                  <th className="w-[44px] pl-4 pr-1 py-3.5">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-foreground/20 text-foreground accent-foreground cursor-pointer"
+                    />
+                  </th>
                   {([
                     ["first_name", "First Name"],
                     ["last_name", "Last Name"],
@@ -285,6 +345,14 @@ export default function DepartmentDetailPage() {
                     key={member.id}
                     className="border-b border-foreground/[0.06] last:border-0 hover:bg-foreground/[0.03] transition-colors"
                   >
+                    <td className="pl-4 pr-1 py-3.5">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(member.id)}
+                        onChange={() => toggleSelect(member.id)}
+                        className="w-4 h-4 rounded border-foreground/20 text-foreground accent-foreground cursor-pointer"
+                      />
+                    </td>
                     <td className="pl-5 pr-2 py-3.5 text-sm font-medium text-foreground whitespace-nowrap">
                       {member.first_name}
                     </td>

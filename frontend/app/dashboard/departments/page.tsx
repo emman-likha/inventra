@@ -2,9 +2,9 @@
 
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { fetchDepartments } from "@/lib/api";
+import { fetchDepartments, deleteDepartments } from "@/lib/api";
 import { AddDepartmentModal } from "@/components/dashboard/AddDepartmentModal";
 import { ImportDepartmentModal } from "@/components/dashboard/ImportDepartmentModal";
 import { ActionMenu } from "@/components/ui/ActionMenu";
@@ -30,15 +30,25 @@ const fadeUp = {
 
 export default function DepartmentsPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const { data: departments = [], isLoading, isError } = useQuery({
     queryKey: ["departments"],
     queryFn: () => fetchDepartments() as Promise<Department[]>,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (ids: string[]) => deleteDepartments(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["departments"] });
+      setSelectedIds(new Set());
+    },
   });
 
   const filtered = useMemo(() => {
@@ -76,6 +86,26 @@ export default function DepartmentsPage() {
     return <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>;
   }
 
+  const allSelected = filtered.length > 0 && filtered.every((d) => selectedIds.has(d.id));
+  const someSelected = filtered.some((d) => selectedIds.has(d.id));
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((d) => d.id)));
+    }
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   return (
     <motion.div variants={stagger} initial="hidden" animate="visible">
       {/* Header */}
@@ -109,11 +139,29 @@ export default function DepartmentsPage() {
         </div>
       </motion.div>
 
-      {/* Results count */}
-      <motion.div variants={fadeUp} className="mb-4">
+      {/* Results count + Delete Selected */}
+      <motion.div variants={fadeUp} className="flex items-center justify-between mb-4">
         <p className="text-xs text-foreground/40">
           {filtered.length} {filtered.length === 1 ? "department" : "departments"}
+          {selectedIds.size > 0 && (
+            <span className="ml-2 text-foreground/60 font-medium">
+              ({selectedIds.size} selected)
+            </span>
+          )}
         </p>
+        {selectedIds.size > 0 && (
+          <button
+            onClick={() => deleteMutation.mutate([...selectedIds])}
+            disabled={deleteMutation.isPending}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+            </svg>
+            Delete Selected ({selectedIds.size})
+          </button>
+        )}
       </motion.div>
 
       {/* Table */}
@@ -167,6 +215,15 @@ export default function DepartmentsPage() {
             <table className="w-full">
               <thead className="sticky top-0 z-10 bg-background">
                 <tr className="border-b border-foreground/[0.08]">
+                  <th className="w-[44px] pl-4 pr-1 py-3.5">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-foreground/20 text-foreground accent-foreground cursor-pointer"
+                    />
+                  </th>
                   {([
                     ["name", "Name"],
                     ["members", "Members"],
@@ -197,6 +254,14 @@ export default function DepartmentsPage() {
                       onClick={() => router.push(`/dashboard/departments/${dept.id}`)}
                       className="border-b border-foreground/[0.06] last:border-0 hover:bg-foreground/[0.03] transition-colors cursor-pointer"
                     >
+                      <td className="pl-4 pr-1 py-3.5" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(dept.id)}
+                          onChange={() => toggleSelect(dept.id)}
+                          className="w-4 h-4 rounded border-foreground/20 text-foreground accent-foreground cursor-pointer"
+                        />
+                      </td>
                       <td className="pl-5 pr-2 py-3.5 text-sm font-medium text-foreground whitespace-nowrap">
                         {dept.name}
                       </td>
