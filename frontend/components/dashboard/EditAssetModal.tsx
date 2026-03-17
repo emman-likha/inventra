@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { updateAsset } from "@/lib/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { updateAsset, fetchAllMembers, type Member } from "@/lib/api";
 
 const inputClass =
   "w-full bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-foreground/20 transition-colors";
@@ -17,6 +17,7 @@ interface Asset {
   location: string | null;
   status: string;
   value: number | null;
+  assigned_to: string | null;
 }
 
 interface EditAssetModalProps {
@@ -33,7 +34,14 @@ export function EditAssetModal({ open, onClose, asset }: EditAssetModalProps) {
   const [location, setLocation] = useState("");
   const [status, setStatus] = useState("available");
   const [value, setValue] = useState("");
+  const [assignedTo, setAssignedTo] = useState("");
   const [error, setError] = useState("");
+
+  const { data: members = [] } = useQuery<Member[]>({
+    queryKey: ["all-members"],
+    queryFn: fetchAllMembers,
+    enabled: open,
+  });
 
   useEffect(() => {
     if (asset && open) {
@@ -42,6 +50,7 @@ export function EditAssetModal({ open, onClose, asset }: EditAssetModalProps) {
       setLocation(asset.location || "");
       setStatus(asset.status);
       setValue(asset.value != null ? String(asset.value) : "");
+      setAssignedTo(asset.assigned_to || "");
       setError("");
     }
   }, [asset, open]);
@@ -55,6 +64,7 @@ export function EditAssetModal({ open, onClose, asset }: EditAssetModalProps) {
         location: location.trim() || null,
         status,
         value: value.trim() ? parseFloat(value) : null,
+        assigned_to: assignedTo || null,
       });
     },
     onSuccess: () => {
@@ -65,6 +75,19 @@ export function EditAssetModal({ open, onClose, asset }: EditAssetModalProps) {
       setError(err.message);
     },
   });
+
+  function handleAssignedToChange(memberId: string) {
+    setAssignedTo(memberId);
+    if (memberId) {
+      setStatus("checked_out");
+      const member = members.find((m) => m.id === memberId);
+      if (member?.site_location) {
+        setLocation(member.site_location);
+      }
+    } else if (status === "checked_out") {
+      setStatus("available");
+    }
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -90,11 +113,7 @@ export function EditAssetModal({ open, onClose, asset }: EditAssetModalProps) {
     <AnimatePresence>
       {open && (
         <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+          <div
             className="fixed inset-0 bg-foreground/10 backdrop-blur-sm z-50"
             onClick={onClose}
           />
@@ -169,13 +188,22 @@ export function EditAssetModal({ open, onClose, asset }: EditAssetModalProps) {
                     <select
                       value={status}
                       onChange={(e) => setStatus(e.target.value)}
-                      className={inputClass}
+                      disabled={!!assignedTo}
+                      className={`${inputClass} ${assignedTo ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
-                      <option value="available">Available</option>
-                      <option value="checked_out">Checked Out</option>
-                      <option value="maintenance">Maintenance</option>
-                      <option value="retired">Retired</option>
+                      {assignedTo ? (
+                        <option value="checked_out">Checked Out</option>
+                      ) : (
+                        <>
+                          <option value="available">Available</option>
+                          <option value="maintenance">Maintenance</option>
+                          <option value="retired">Retired</option>
+                        </>
+                      )}
                     </select>
+                    {assignedTo && (
+                      <p className="text-[10px] text-foreground/30 mt-1">Auto-set while assigned</p>
+                    )}
                   </div>
                   <div>
                     <label className={labelClass}>Value (USD)</label>
@@ -186,6 +214,22 @@ export function EditAssetModal({ open, onClose, asset }: EditAssetModalProps) {
                       className={inputClass}
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className={labelClass}>Assigned To</label>
+                  <select
+                    value={assignedTo}
+                    onChange={(e) => handleAssignedToChange(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">Unassigned</option>
+                    {members.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.first_name} {m.last_name}{m.position ? ` — ${m.position}` : ""}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="flex gap-3 mt-2">

@@ -109,6 +109,19 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
           <path d="M13.73 21a2 2 0 01-3.46 0" />
         </svg>
       );
+    case "activity":
+      return (
+        <svg {...props}>
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
+      );
+    case "clock":
+      return (
+        <svg {...props}>
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+      );
     default:
       return null;
   }
@@ -120,6 +133,7 @@ export interface SidebarItem {
   label: string;
   href: string;
   icon: string;
+  children?: { label: string; href: string; icon: string }[];
 }
 
 interface SidebarProps {
@@ -134,6 +148,31 @@ interface SidebarProps {
 export function Sidebar({ items, role, userName, onSignOut }: SidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(() => {
+    // Auto-expand parent if a child is active
+    const expanded = new Set<string>();
+    items.forEach((item) => {
+      if (item.children?.some((child) => pathname === child.href || pathname.startsWith(child.href + "/"))) {
+        expanded.add(item.href);
+      }
+    });
+    return expanded;
+  });
+
+  function toggleExpand(href: string) {
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(href)) next.delete(href);
+      else next.add(href);
+      return next;
+    });
+  }
+
+  function isItemActive(item: SidebarItem): boolean {
+    if (pathname === item.href) return true;
+    if (item.children?.some((child) => pathname === child.href || pathname.startsWith(child.href + "/"))) return true;
+    return false;
+  }
 
   const navContent = (
     <div className="flex flex-col h-full">
@@ -152,7 +191,111 @@ export function Sidebar({ items, role, userName, onSignOut }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 px-3 flex flex-col gap-1">
         {items.map((item) => {
-          const isActive = pathname === item.href;
+          const hasChildren = item.children && item.children.length > 0;
+          const isActive = isItemActive(item);
+          const isExpanded = expandedItems.has(item.href);
+
+          if (hasChildren) {
+            return (
+              <div key={item.href}>
+                {/* Parent with children — click navigates, chevron expands */}
+                <div className="flex items-center">
+                  <Link
+                    href={item.href}
+                    onClick={() => {
+                      setMobileOpen(false);
+                      if (!isExpanded) toggleExpand(item.href);
+                    }}
+                    className={`
+                      group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex-1
+                      ${isActive
+                        ? "text-foreground bg-foreground/[0.08]"
+                        : "text-foreground/50 hover:text-foreground/80 hover:bg-foreground/[0.05]"
+                      }
+                    `}
+                  >
+                    {isActive && !isExpanded && (
+                      <motion.div
+                        layoutId="sidebar-active"
+                        className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-foreground rounded-full"
+                        transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                      />
+                    )}
+                    <Icon name={item.icon} size={18} />
+                    {item.label}
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleExpand(item.href);
+                      }}
+                      className="ml-auto p-0.5 rounded hover:bg-foreground/[0.06] transition-colors cursor-pointer"
+                    >
+                      <motion.svg
+                        animate={{ rotate: isExpanded ? 180 : 0 }}
+                        transition={{ duration: 0.2 }}
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-foreground/30"
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </motion.svg>
+                    </button>
+                  </Link>
+                </div>
+
+                {/* Children */}
+                <AnimatePresence initial={false}>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                      className="overflow-hidden"
+                    >
+                      <div className="ml-5 pl-3 border-l border-foreground/[0.06] mt-1 flex flex-col gap-0.5">
+                        {item.children!.map((child) => {
+                          const childActive = pathname === child.href || pathname.startsWith(child.href + "/");
+                          return (
+                            <Link
+                              key={child.href}
+                              href={child.href}
+                              onClick={() => setMobileOpen(false)}
+                              className={`
+                                group relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-200
+                                ${childActive
+                                  ? "text-foreground bg-foreground/[0.06]"
+                                  : "text-foreground/45 hover:text-foreground/75 hover:bg-foreground/[0.04]"
+                                }
+                              `}
+                            >
+                              {childActive && (
+                                <motion.div
+                                  layoutId="sidebar-active"
+                                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 bg-foreground rounded-full"
+                                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                                />
+                              )}
+                              <Icon name={child.icon} size={15} />
+                              {child.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          }
+
           return (
             <Link
               key={item.href}

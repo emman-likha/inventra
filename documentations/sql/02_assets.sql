@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.assets (
   location TEXT,
   status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'checked_out', 'maintenance', 'retired')),
   value NUMERIC(12, 2),
-  assigned_to UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  assigned_to UUID REFERENCES public.members(id) ON DELETE SET NULL,
   created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()

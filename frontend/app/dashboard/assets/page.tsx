@@ -9,6 +9,19 @@ import { ImportAssetModal } from "@/components/dashboard/ImportAssetModal";
 import { EditAssetModal } from "@/components/dashboard/EditAssetModal";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { ActionMenu } from "@/components/ui/ActionMenu";
+import { ColumnToggle } from "@/components/ui/ColumnToggle";
+import { useColumnVisibility } from "@/hooks/useColumnVisibility";
+
+const ASSET_COLUMNS = [
+  { key: "name", label: "Name", locked: true },
+  { key: "category", label: "Category" },
+  { key: "location", label: "Location" },
+  { key: "status", label: "Status" },
+  { key: "assigned_to", label: "Assigned To" },
+  { key: "value", label: "Value" },
+  { key: "created_at", label: "Date Added" },
+];
+const DEFAULT_ASSET_COLS = new Set(ASSET_COLUMNS.map((c) => c.key));
 
 interface Asset {
   id: string;
@@ -17,11 +30,13 @@ interface Asset {
   location: string | null;
   status: string;
   value: number | null;
+  assigned_to: string | null;
+  assigned_member: { id: string; first_name: string; last_name: string } | null;
   created_at: string;
   created_by: string;
 }
 
-type SortField = "name" | "category" | "location" | "status" | "value" | "created_at";
+type SortField = "name" | "category" | "location" | "status" | "assigned_to" | "value" | "created_at";
 type SortDir = "asc" | "desc";
 
 const STATUS_OPTIONS = ["all", "available", "checked_out", "maintenance", "retired"] as const;
@@ -59,6 +74,7 @@ export default function MyAssetsPage() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editAsset, setEditAsset] = useState<Asset | null>(null);
+  const [visibleCols, setVisibleCols] = useColumnVisibility("cols:assets", DEFAULT_ASSET_COLS);
 
   const { data: assets = [], isLoading, isError } = useQuery<Asset[]>({
     queryKey: ["assets"],
@@ -97,8 +113,15 @@ export default function MyAssetsPage() {
       );
     }
     result.sort((a, b) => {
-      const aVal = a[sortField as keyof Asset] ?? "";
-      const bVal = b[sortField as keyof Asset] ?? "";
+      let aVal: string | number = "";
+      let bVal: string | number = "";
+      if (sortField === "assigned_to") {
+        aVal = a.assigned_member ? `${a.assigned_member.first_name} ${a.assigned_member.last_name}` : "";
+        bVal = b.assigned_member ? `${b.assigned_member.first_name} ${b.assigned_member.last_name}` : "";
+      } else {
+        aVal = (a[sortField as keyof Asset] as string | number) ?? "";
+        bVal = (b[sortField as keyof Asset] as string | number) ?? "";
+      }
       if (typeof aVal === "number" && typeof bVal === "number") {
         return sortDir === "asc" ? aVal - bVal : bVal - aVal;
       }
@@ -204,6 +227,11 @@ export default function MyAssetsPage() {
           placeholder="All Categories"
           className="w-full sm:w-[180px]"
         />
+
+        <div className="flex flex-col">
+          <label className="block text-xs font-medium text-foreground/40 mb-1.5 ml-1 select-none">&nbsp;</label>
+          <ColumnToggle columns={ASSET_COLUMNS} visible={visibleCols} onChange={setVisibleCols} />
+        </div>
       </motion.div>
 
       {/* Results count + Delete Selected */}
@@ -299,15 +327,14 @@ export default function MyAssetsPage() {
                     ["category", "Category"],
                     ["location", "Location"],
                     ["status", "Status"],
+                    ["assigned_to", "Assigned To"],
                     ["value", "Value"],
                     ["created_at", "Date Added"],
-                  ] as [SortField, string][]).map(([field, label]) => (
+                  ] as [SortField, string][]).filter(([field]) => visibleCols.has(field)).map(([field, label]) => (
                     <th
                       key={field}
                       onClick={() => handleSort(field)}
-                      className={`text-left pl-5 pr-2 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider cursor-pointer hover:text-foreground/70 transition-colors select-none whitespace-nowrap ${(field !== "name" && field !== "created_at") ? "w-[16%]" : ""
-                        } ${field === "location" ? "hidden md:table-cell" : ""
-                        } ${field === "created_at" ? "hidden lg:table-cell" : ""}`}
+                      className="text-left pl-5 pr-2 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider cursor-pointer hover:text-foreground/70 transition-colors select-none whitespace-nowrap"
                     >
                       {label}
                       <SortIcon field={field} />
@@ -332,33 +359,51 @@ export default function MyAssetsPage() {
                         className="w-4 h-4 rounded border-foreground/20 text-foreground accent-foreground cursor-pointer"
                       />
                     </td>
-                    <td className="pl-5 pr-2 py-3.5 text-sm font-medium text-foreground whitespace-nowrap">
-                      {asset.name}
-                    </td>
-                    <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
-                      {asset.category}
-                    </td>
-                    <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 hidden md:table-cell whitespace-nowrap">
-                      {asset.location || "—"}
-                    </td>
-                    <td className="pl-5 pr-2 py-3.5 whitespace-nowrap">
-                      <span
-                        className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[asset.status] ?? ""
-                          }`}
-                      >
-                        {STATUS_LABELS[asset.status] ?? asset.status}
-                      </span>
-                    </td>
-                    <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
-                      {formatCurrency(asset.value)}
-                    </td>
-                    <td className="pl-5 pr-2 py-3.5 text-xs text-foreground/40 hidden lg:table-cell whitespace-nowrap">
-                      {new Date(asset.created_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </td>
+                    {visibleCols.has("name") && (
+                      <td className="pl-5 pr-2 py-3.5 text-sm font-medium text-foreground whitespace-nowrap">
+                        {asset.name}
+                      </td>
+                    )}
+                    {visibleCols.has("category") && (
+                      <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                        {asset.category}
+                      </td>
+                    )}
+                    {visibleCols.has("location") && (
+                      <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                        {asset.location || "—"}
+                      </td>
+                    )}
+                    {visibleCols.has("status") && (
+                      <td className="pl-5 pr-2 py-3.5 whitespace-nowrap">
+                        <span
+                          className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[asset.status] ?? ""}`}
+                        >
+                          {STATUS_LABELS[asset.status] ?? asset.status}
+                        </span>
+                      </td>
+                    )}
+                    {visibleCols.has("assigned_to") && (
+                      <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                        {asset.assigned_member
+                          ? `${asset.assigned_member.first_name} ${asset.assigned_member.last_name}`
+                          : "—"}
+                      </td>
+                    )}
+                    {visibleCols.has("value") && (
+                      <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                        {formatCurrency(asset.value)}
+                      </td>
+                    )}
+                    {visibleCols.has("created_at") && (
+                      <td className="pl-5 pr-2 py-3.5 text-xs text-foreground/40 whitespace-nowrap">
+                        {new Date(asset.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </td>
+                    )}
                     <td className="px-2 py-3.5 text-center border-l border-foreground/[0.08]">
                       <ActionMenu
                         items={[

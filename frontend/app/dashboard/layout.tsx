@@ -8,7 +8,10 @@ import { Sidebar, SidebarItem } from "@/components/dashboard/Sidebar";
 
 const sidebarItems: SidebarItem[] = [
   { label: "Overview", href: "/dashboard", icon: "home" },
-  { label: "My Assets", href: "/dashboard/assets", icon: "box" },
+  { label: "My Assets", href: "/dashboard/assets", icon: "box", children: [
+    { label: "Asset Manager", href: "/dashboard/assets/manager", icon: "activity" },
+    { label: "Movement History", href: "/dashboard/assets/history", icon: "clock" },
+  ]},
   { label: "Inventory", href: "/dashboard/inventory", icon: "clipboard" },
   { label: "Departments", href: "/dashboard/departments", icon: "users" },
   { label: "Categories", href: "/dashboard/categories", icon: "tag" },

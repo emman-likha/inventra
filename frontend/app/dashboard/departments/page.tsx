@@ -9,6 +9,15 @@ import { AddDepartmentModal } from "@/components/dashboard/AddDepartmentModal";
 import { ImportDepartmentModal } from "@/components/dashboard/ImportDepartmentModal";
 import { EditDepartmentModal } from "@/components/dashboard/EditDepartmentModal";
 import { ActionMenu } from "@/components/ui/ActionMenu";
+import { ColumnToggle } from "@/components/ui/ColumnToggle";
+import { useColumnVisibility } from "@/hooks/useColumnVisibility";
+
+const DEPT_COLUMNS = [
+  { key: "name", label: "Name", locked: true },
+  { key: "members", label: "Members" },
+  { key: "created_at", label: "Date Created" },
+];
+const DEFAULT_DEPT_COLS = new Set(DEPT_COLUMNS.map((c) => c.key));
 
 interface Department {
   id: string;
@@ -39,6 +48,7 @@ export default function DepartmentsPage() {
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [editDept, setEditDept] = useState<Department | null>(null);
+  const [visibleCols, setVisibleCols] = useColumnVisibility("cols:departments", DEFAULT_DEPT_COLS);
 
   const { data: departments = [], isLoading, isError } = useQuery({
     queryKey: ["departments"],
@@ -139,6 +149,7 @@ export default function DepartmentsPage() {
             className="w-full bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-foreground/20 transition-colors"
           />
         </div>
+        <ColumnToggle columns={DEPT_COLUMNS} visible={visibleCols} onChange={setVisibleCols} />
       </motion.div>
 
       {/* Results count + Delete Selected */}
@@ -230,13 +241,11 @@ export default function DepartmentsPage() {
                     ["name", "Name"],
                     ["members", "Members"],
                     ["created_at", "Date Created"],
-                  ] as [SortField, string][]).map(([field, label]) => (
+                  ] as [SortField, string][]).filter(([field]) => visibleCols.has(field)).map(([field, label]) => (
                     <th
                       key={field}
                       onClick={() => handleSort(field)}
-                      className={`text-left pl-5 pr-2 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider cursor-pointer hover:text-foreground/70 transition-colors select-none whitespace-nowrap ${
-                        field === "created_at" ? "hidden lg:table-cell" : ""
-                      }`}
+                      className="text-left pl-5 pr-2 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider cursor-pointer hover:text-foreground/70 transition-colors select-none whitespace-nowrap"
                     >
                       {label}
                       <SortIcon field={field} />
@@ -264,19 +273,25 @@ export default function DepartmentsPage() {
                           className="w-4 h-4 rounded border-foreground/20 text-foreground accent-foreground cursor-pointer"
                         />
                       </td>
-                      <td className="pl-5 pr-2 py-3.5 text-sm font-medium text-foreground whitespace-nowrap">
-                        {dept.name}
-                      </td>
-                      <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
-                        {memberCount} {memberCount === 1 ? "member" : "members"}
-                      </td>
-                      <td className="pl-5 pr-2 py-3.5 text-xs text-foreground/40 hidden lg:table-cell whitespace-nowrap">
-                        {new Date(dept.created_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </td>
+                      {visibleCols.has("name") && (
+                        <td className="pl-5 pr-2 py-3.5 text-sm font-medium text-foreground whitespace-nowrap">
+                          {dept.name}
+                        </td>
+                      )}
+                      {visibleCols.has("members") && (
+                        <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                          {memberCount} {memberCount === 1 ? "member" : "members"}
+                        </td>
+                      )}
+                      {visibleCols.has("created_at") && (
+                        <td className="pl-5 pr-2 py-3.5 text-xs text-foreground/40 whitespace-nowrap">
+                          {new Date(dept.created_at).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </td>
+                      )}
                       <td className="px-2 py-3.5 text-center border-l border-foreground/[0.08]">
                         <ActionMenu
                           items={[

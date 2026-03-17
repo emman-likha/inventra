@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 export interface ActionMenuItem {
@@ -16,11 +17,36 @@ interface ActionMenuProps {
 
 export function ActionMenu({ items }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
+  const updatePosition = useCallback(() => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const menuWidth = 160;
+    const menuHeight = items.length * 44 + 8;
+
+    let top = rect.bottom + 4;
+    let left = rect.right - menuWidth;
+
+    // Flip upward if not enough space below
+    if (top + menuHeight > window.innerHeight - 8) {
+      top = rect.top - menuHeight - 4;
+    }
+
+    // Keep within left edge
+    if (left < 8) {
+      left = 8;
+    }
+
+    setPosition({ top, left });
+  }, [items.length]);
+
   useEffect(() => {
     if (!open) return;
+
+    updatePosition();
 
     function handleClickOutside(e: MouseEvent) {
       if (
@@ -37,16 +63,24 @@ export function ActionMenu({ items }: ActionMenuProps) {
       if (e.key === "Escape") setOpen(false);
     }
 
+    function handleScroll() {
+      setOpen(false);
+    }
+
     document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("keydown", handleEscape);
+    window.addEventListener("scroll", handleScroll, true);
+    window.addEventListener("resize", handleScroll);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleScroll);
     };
-  }, [open]);
+  }, [open, updatePosition]);
 
   return (
-    <div className="relative inline-flex">
+    <>
       <button
         ref={buttonRef}
         onClick={(e) => {
@@ -68,41 +102,51 @@ export function ActionMenu({ items }: ActionMenuProps) {
         </svg>
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            ref={menuRef}
-            initial={{ opacity: 0, scale: 0.92, y: -4 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.92, y: -4 }}
-            transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
-            className="absolute right-0 top-full mt-1 z-50 min-w-[140px] bg-background border border-foreground/[0.1] rounded-xl shadow-lg shadow-foreground/[0.04] overflow-hidden"
-          >
-            {items.map((item, i) => (
-              <button
-                key={i}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOpen(false);
-                  item.onClick();
+      {typeof window !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {open && position && (
+              <motion.div
+                ref={menuRef}
+                initial={{ opacity: 0, scale: 0.92, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: -4 }}
+                transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
+                style={{
+                  position: "fixed",
+                  top: position.top,
+                  left: position.left,
+                  zIndex: 9999,
                 }}
-                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors cursor-pointer ${
-                  item.danger
-                    ? "text-red-500/80 hover:bg-red-500/[0.06] hover:text-red-500"
-                    : "text-foreground/65 hover:bg-foreground/[0.05] hover:text-foreground"
-                } ${i > 0 ? "border-t border-foreground/[0.05]" : ""}`}
+                className="min-w-[160px] bg-background border border-foreground/[0.1] rounded-xl shadow-xl shadow-foreground/[0.06] overflow-hidden"
               >
-                {item.icon && (
-                  <span className="shrink-0 w-4 h-4 flex items-center justify-center">
-                    {item.icon}
-                  </span>
-                )}
-                {item.label}
-              </button>
-            ))}
-          </motion.div>
+                {items.map((item, i) => (
+                  <button
+                    key={i}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpen(false);
+                      item.onClick();
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors cursor-pointer ${
+                      item.danger
+                        ? "text-red-500/80 hover:bg-red-500/[0.06] hover:text-red-500"
+                        : "text-foreground/65 hover:bg-foreground/[0.05] hover:text-foreground"
+                    } ${i > 0 ? "border-t border-foreground/[0.05]" : ""}`}
+                  >
+                    {item.icon && (
+                      <span className="shrink-0 w-4 h-4 flex items-center justify-center">
+                        {item.icon}
+                      </span>
+                    )}
+                    {item.label}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body
         )}
-      </AnimatePresence>
-    </div>
+    </>
   );
 }

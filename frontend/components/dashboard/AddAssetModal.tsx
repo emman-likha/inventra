@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createAsset } from "@/lib/api";
-import { Dropdown } from "@/components/ui/Dropdown";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createAsset, fetchAllMembers, type Member } from "@/lib/api";
 
 const inputClass =
   "w-full bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-foreground/20 transition-colors";
@@ -13,7 +12,6 @@ const labelClass = "block text-foreground/50 text-xs font-medium mb-1.5";
 
 const STATUS_OPTIONS = [
   { value: "available", label: "Available" },
-  { value: "checked_out", label: "Checked Out" },
   { value: "maintenance", label: "Maintenance" },
   { value: "retired", label: "Retired" },
 ];
@@ -31,7 +29,14 @@ export function AddAssetModal({ open, onClose }: AddAssetModalProps) {
   const [location, setLocation] = useState("");
   const [status, setStatus] = useState("available");
   const [value, setValue] = useState("");
+  const [assignedTo, setAssignedTo] = useState("");
   const [error, setError] = useState("");
+
+  const { data: members = [] } = useQuery<Member[]>({
+    queryKey: ["all-members"],
+    queryFn: fetchAllMembers,
+    enabled: open,
+  });
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -39,8 +44,9 @@ export function AddAssetModal({ open, onClose }: AddAssetModalProps) {
         name: name.trim(),
         category: category.trim(),
         location: location.trim() || null,
-        status,
+        status: assignedTo ? "checked_out" : status,
         value: value.trim() ? parseFloat(value) : null,
+        assigned_to: assignedTo || null,
       });
     },
     onSuccess: () => {
@@ -59,6 +65,7 @@ export function AddAssetModal({ open, onClose }: AddAssetModalProps) {
     setLocation("");
     setStatus("available");
     setValue("");
+    setAssignedTo("");
     setError("");
   }
 
@@ -92,11 +99,7 @@ export function AddAssetModal({ open, onClose }: AddAssetModalProps) {
       {open && (
         <>
           {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+          <div
             className="fixed inset-0 bg-foreground/10 backdrop-blur-sm z-50"
             onClick={handleClose}
           />
@@ -162,14 +165,25 @@ export function AddAssetModal({ open, onClose }: AddAssetModalProps) {
                       className={inputClass}
                     />
                   </div>
-                  <div className="flex flex-col">
-                    <Dropdown
-                      label="Status"
-                      value={status}
-                      onChange={setStatus}
-                      options={STATUS_OPTIONS}
-                      className="w-full"
-                    />
+                  <div>
+                    <label className={labelClass}>Status</label>
+                    <select
+                      value={assignedTo ? "checked_out" : status}
+                      onChange={(e) => setStatus(e.target.value)}
+                      disabled={!!assignedTo}
+                      className={`${inputClass} ${assignedTo ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      {assignedTo ? (
+                        <option value="checked_out">Checked Out</option>
+                      ) : (
+                        STATUS_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))
+                      )}
+                    </select>
+                    {assignedTo && (
+                      <p className="text-[10px] text-foreground/30 mt-1">Auto-set while assigned</p>
+                    )}
                   </div>
                 </div>
 
@@ -195,6 +209,32 @@ export function AddAssetModal({ open, onClose }: AddAssetModalProps) {
                       className={inputClass}
                     />
                   </div>
+                </div>
+
+                {/* Assigned To */}
+                <div>
+                  <label className={labelClass}>Assign To</label>
+                  <select
+                    value={assignedTo}
+                    onChange={(e) => {
+                      const memberId = e.target.value;
+                      setAssignedTo(memberId);
+                      if (memberId) {
+                        const member = members.find((m) => m.id === memberId);
+                        if (member?.site_location) {
+                          setLocation(member.site_location);
+                        }
+                      }
+                    }}
+                    className={inputClass}
+                  >
+                    <option value="">Unassigned</option>
+                    {members.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.first_name} {m.last_name}{m.position ? ` — ${m.position}` : ""}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Actions */}

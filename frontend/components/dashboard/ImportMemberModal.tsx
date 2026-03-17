@@ -251,11 +251,7 @@ export function ImportMemberModal({ open, onClose, departmentId }: ImportMemberM
     <AnimatePresence>
       {open && (
         <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+          <div
             className="fixed inset-0 bg-foreground/10 backdrop-blur-sm z-50"
             onClick={handleClose}
           />

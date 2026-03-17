@@ -51,6 +51,51 @@ export async function fetchMyProfile() {
   return handleResponse(res);
 }
 
+// ── Asset Actions ─────────────────────────────────────
+
+export interface AssetAction {
+  id: string;
+  asset_id: string;
+  action: string;
+  member_id: string | null;
+  department_id: string | null;
+  from_location: string | null;
+  to_location: string | null;
+  work_setup: string | null;
+  action_date: string | null;
+  notes: string | null;
+  performed_by: string | null;
+  created_at: string;
+  asset: { id: string; name: string } | null;
+  member: { id: string; first_name: string; last_name: string } | null;
+  department: { id: string; name: string } | null;
+}
+
+export async function fetchAssetActions() {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/asset-actions`, { headers });
+  return handleResponse(res);
+}
+
+export async function createAssetAction(data: {
+  asset_id: string;
+  action: string;
+  member_id?: string | null;
+  department_id?: string | null;
+  to_location?: string | null;
+  work_setup?: string | null;
+  action_date?: string | null;
+  notes?: string | null;
+}) {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/asset-actions`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res);
+}
+
 // ── Assets ─────────────────────────────────────────────
 
 export async function fetchAssets() {
@@ -65,6 +110,7 @@ export async function createAsset(asset: {
   location?: string | null;
   status: string;
   value?: number | null;
+  assigned_to?: string | null;
 }) {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/assets`, {
@@ -97,6 +143,7 @@ export async function updateAsset(id: string, updates: Partial<{
   location: string | null;
   status: string;
   value: number | null;
+  assigned_to: string | null;
 }>) {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/assets/${id}`, {
@@ -272,6 +319,12 @@ export interface Member extends MemberInput {
 export async function fetchMembers(departmentId: string) {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}/api/members?department_id=${departmentId}`, { headers });
+  return handleResponse(res);
+}
+
+export async function fetchAllMembers() {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/members`, { headers });
   return handleResponse(res);
 }
 

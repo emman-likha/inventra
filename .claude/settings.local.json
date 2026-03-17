@@ -22,7 +22,8 @@
       "Bash(grep -r \"middleware\\\\\\\\.ts\\\\|middleware\\\\\\\\.js\" \"C:/Users/John - ShoreAgents/Documents/Github/inventra/frontend/node_modules/next/dist/build\" --include=\"*.js\" --include=\"*.d.ts\" 2>/dev/null | grep -v \"\\\\.map\" | head -15)",
       "Bash(grep -r \"find.*proxy\\\\|proxy.*find\\\\|collectMiddleware\\\\|'proxy'\" \"C:/Users/John - ShoreAgents/Documents/Github/inventra/frontend/node_modules/next/dist\" --include=\"*.js\" --include=\"*.d.ts\" 2>/dev/null | grep -v \"\\\\.map\\\\|node_modules\" | head -20)",
       "Bash(grep -r \"MIDDLEWARE_FILENAME\\\\|middleware.*FILENAME\" \"C:/Users/John - ShoreAgents/Documents/Github/inventra/frontend/node_modules/next/dist\" --include=\"*.js\" 2>/dev/null | grep -v \"\\\\.map\" | head -10)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(find \"C:\\\\Users\\\\John - ShoreAgents\\\\Documents\\\\Github\\\\inventra\" -type f -name \"*.sql\" 2>/dev/null | head -20)"
     ]
   }
 }

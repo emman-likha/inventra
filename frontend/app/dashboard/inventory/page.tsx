@@ -8,6 +8,18 @@ import { AddInventoryModal } from "@/components/dashboard/AddInventoryModal";
 import { ImportInventoryModal } from "@/components/dashboard/ImportInventoryModal";
 import { EditInventoryModal } from "@/components/dashboard/EditInventoryModal";
 import { ActionMenu } from "@/components/ui/ActionMenu";
+import { ColumnToggle } from "@/components/ui/ColumnToggle";
+import { useColumnVisibility } from "@/hooks/useColumnVisibility";
+
+const INV_COLUMNS = [
+  { key: "name", label: "Name", locked: true },
+  { key: "category", label: "Category" },
+  { key: "quantity", label: "Quantity" },
+  { key: "cost_per_unit", label: "Unit Cost" },
+  { key: "location", label: "Location" },
+  { key: "created_at", label: "Date Added" },
+];
+const DEFAULT_INV_COLS = new Set(INV_COLUMNS.map((c) => c.key));
 
 type SortField = "name" | "category" | "quantity" | "cost_per_unit" | "location" | "created_at";
 type SortDir = "asc" | "desc";
@@ -30,6 +42,7 @@ export default function InventoryPage() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editInventory, setEditInventory] = useState<Inventory | null>(null);
+  const [visibleCols, setVisibleCols] = useColumnVisibility("cols:inventory", DEFAULT_INV_COLS);
 
   const { data: inventories = [], isLoading, isError } = useQuery<Inventory[]>({
     queryKey: ["inventories"],
@@ -163,6 +176,7 @@ export default function InventoryPage() {
             className="w-full bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-foreground/20 transition-colors"
           />
         </div>
+        <ColumnToggle columns={INV_COLUMNS} visible={visibleCols} onChange={setVisibleCols} />
       </motion.div>
 
       {/* Results count + Delete Selected */}
@@ -259,14 +273,11 @@ export default function InventoryPage() {
                     ["cost_per_unit", "Unit Cost"],
                     ["location", "Location"],
                     ["created_at", "Date Added"],
-                  ] as [SortField, string][]).map(([field, label]) => (
+                  ] as [SortField, string][]).filter(([field]) => visibleCols.has(field)).map(([field, label]) => (
                     <th
                       key={field}
                       onClick={() => handleSort(field)}
-                      className={`text-left pl-5 pr-2 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider cursor-pointer hover:text-foreground/70 transition-colors select-none whitespace-nowrap ${
-                        field === "category" ? "hidden sm:table-cell" : ""
-                      } ${field === "location" ? "hidden md:table-cell" : ""
-                      } ${field === "created_at" ? "hidden lg:table-cell" : ""}`}
+                      className="text-left pl-5 pr-2 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider cursor-pointer hover:text-foreground/70 transition-colors select-none whitespace-nowrap"
                     >
                       {label}
                       <SortIcon field={field} />
@@ -293,43 +304,55 @@ export default function InventoryPage() {
                           className="w-4 h-4 rounded border-foreground/20 text-foreground accent-foreground cursor-pointer"
                         />
                       </td>
-                      <td className="pl-5 pr-2 py-3.5">
-                        <p className="text-sm font-medium text-foreground whitespace-nowrap">
-                          {inv.name}
-                        </p>
-                        {inv.description && (
-                          <p className="text-xs text-foreground/40 mt-0.5 truncate max-w-[260px]">
-                            {inv.description}
+                      {visibleCols.has("name") && (
+                        <td className="pl-5 pr-2 py-3.5">
+                          <p className="text-sm font-medium text-foreground whitespace-nowrap">
+                            {inv.name}
                           </p>
-                        )}
-                      </td>
-                      <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 hidden sm:table-cell whitespace-nowrap">
-                        {inv.category || "—"}
-                      </td>
-                      <td className="pl-5 pr-2 py-3.5 whitespace-nowrap">
-                        <span className={`text-sm font-medium ${isLowStock ? "text-amber-600" : "text-foreground/70"}`}>
-                          {inv.quantity}
-                        </span>
-                        <span className="text-xs text-foreground/40 ml-1">{inv.unit}</span>
-                        {isLowStock && (
-                          <span className="ml-2 text-[10px] font-semibold bg-amber-500/10 text-amber-600 px-1.5 py-0.5 rounded-full">
-                            LOW
+                          {inv.description && (
+                            <p className="text-xs text-foreground/40 mt-0.5 truncate max-w-[260px]">
+                              {inv.description}
+                            </p>
+                          )}
+                        </td>
+                      )}
+                      {visibleCols.has("category") && (
+                        <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                          {inv.category || "—"}
+                        </td>
+                      )}
+                      {visibleCols.has("quantity") && (
+                        <td className="pl-5 pr-2 py-3.5 whitespace-nowrap">
+                          <span className={`text-sm font-medium ${isLowStock ? "text-amber-600" : "text-foreground/70"}`}>
+                            {inv.quantity}
                           </span>
-                        )}
-                      </td>
-                      <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
-                        {formatCurrency(inv.cost_per_unit)}
-                      </td>
-                      <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 hidden md:table-cell whitespace-nowrap">
-                        {inv.location || "—"}
-                      </td>
-                      <td className="pl-5 pr-2 py-3.5 text-xs text-foreground/40 hidden lg:table-cell whitespace-nowrap">
-                        {new Date(inv.created_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </td>
+                          <span className="text-xs text-foreground/40 ml-1">{inv.unit}</span>
+                          {isLowStock && (
+                            <span className="ml-2 text-[10px] font-semibold bg-amber-500/10 text-amber-600 px-1.5 py-0.5 rounded-full">
+                              LOW
+                            </span>
+                          )}
+                        </td>
+                      )}
+                      {visibleCols.has("cost_per_unit") && (
+                        <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                          {formatCurrency(inv.cost_per_unit)}
+                        </td>
+                      )}
+                      {visibleCols.has("location") && (
+                        <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                          {inv.location || "—"}
+                        </td>
+                      )}
+                      {visibleCols.has("created_at") && (
+                        <td className="pl-5 pr-2 py-3.5 text-xs text-foreground/40 whitespace-nowrap">
+                          {new Date(inv.created_at).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </td>
+                      )}
                       <td className="px-2 py-3.5 text-center border-l border-foreground/[0.08]">
                         <ActionMenu
                           items={[

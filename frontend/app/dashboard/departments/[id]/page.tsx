@@ -9,6 +9,18 @@ import { AddMemberModal } from "@/components/dashboard/AddMemberModal";
 import { ImportMemberModal } from "@/components/dashboard/ImportMemberModal";
 import { EditMemberModal } from "@/components/dashboard/EditMemberModal";
 import { ActionMenu } from "@/components/ui/ActionMenu";
+import { ColumnToggle } from "@/components/ui/ColumnToggle";
+import { useColumnVisibility } from "@/hooks/useColumnVisibility";
+
+const MEMBER_COLUMNS = [
+  { key: "first_name", label: "First Name", locked: true },
+  { key: "last_name", label: "Last Name", locked: true },
+  { key: "employee_id", label: "Employee ID" },
+  { key: "position", label: "Position" },
+  { key: "email", label: "Email" },
+  { key: "site_location", label: "Site Location" },
+];
+const DEFAULT_MEMBER_COLS = new Set(MEMBER_COLUMNS.map((c) => c.key));
 
 interface Department {
   id: string;
@@ -33,6 +45,7 @@ export default function DepartmentDetailPage() {
   const [sortField, setSortField] = useState<SortField>("first_name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [editMember, setEditMember] = useState<Member | null>(null);
+  const [visibleCols, setVisibleCols] = useColumnVisibility("cols:members", DEFAULT_MEMBER_COLS);
 
   const { data: department, isLoading, isError } = useQuery<Department>({
     queryKey: ["department", id],
@@ -243,24 +256,27 @@ export default function DepartmentDetailPage() {
           )}
         </div>
 
-        {/* Search members */}
+        {/* Search members + Column toggle */}
         {members.length > 0 && (
-          <div className="relative mb-4">
-            <svg
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/30"
-              width="16" height="16" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search members..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-foreground/20 transition-colors"
-            />
+          <div className="flex gap-3 mb-4">
+            <div className="relative flex-1">
+              <svg
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/30"
+                width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search members..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-foreground/20 transition-colors"
+              />
+            </div>
+            <ColumnToggle columns={MEMBER_COLUMNS} visible={visibleCols} onChange={setVisibleCols} />
           </div>
         )}
 
@@ -323,14 +339,11 @@ export default function DepartmentDetailPage() {
                     ["position", "Position"],
                     ["email", "Email"],
                     ["site_location", "Site Location"],
-                  ] as [SortField, string][]).map(([field, label]) => (
+                  ] as [SortField, string][]).filter(([field]) => visibleCols.has(field)).map(([field, label]) => (
                     <th
                       key={field}
                       onClick={() => handleSort(field)}
-                      className={`text-left pl-5 pr-2 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider cursor-pointer hover:text-foreground/70 transition-colors select-none whitespace-nowrap ${
-                        field === "employee_id" ? "hidden lg:table-cell" : ""
-                      } ${field === "email" ? "hidden xl:table-cell" : ""
-                      } ${field === "site_location" ? "hidden md:table-cell" : ""}`}
+                      className="text-left pl-5 pr-2 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider cursor-pointer hover:text-foreground/70 transition-colors select-none whitespace-nowrap"
                     >
                       {label}
                       <SortIcon field={field} />
@@ -355,24 +368,36 @@ export default function DepartmentDetailPage() {
                         className="w-4 h-4 rounded border-foreground/20 text-foreground accent-foreground cursor-pointer"
                       />
                     </td>
-                    <td className="pl-5 pr-2 py-3.5 text-sm font-medium text-foreground whitespace-nowrap">
-                      {member.first_name}
-                    </td>
-                    <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
-                      {member.last_name}
-                    </td>
-                    <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 hidden lg:table-cell whitespace-nowrap">
-                      {member.employee_id || "—"}
-                    </td>
-                    <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
-                      {member.position || "—"}
-                    </td>
-                    <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 hidden xl:table-cell whitespace-nowrap">
-                      {member.email || "—"}
-                    </td>
-                    <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 hidden md:table-cell whitespace-nowrap">
-                      {member.site_location || "—"}
-                    </td>
+                    {visibleCols.has("first_name") && (
+                      <td className="pl-5 pr-2 py-3.5 text-sm font-medium text-foreground whitespace-nowrap">
+                        {member.first_name}
+                      </td>
+                    )}
+                    {visibleCols.has("last_name") && (
+                      <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                        {member.last_name}
+                      </td>
+                    )}
+                    {visibleCols.has("employee_id") && (
+                      <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                        {member.employee_id || "—"}
+                      </td>
+                    )}
+                    {visibleCols.has("position") && (
+                      <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                        {member.position || "—"}
+                      </td>
+                    )}
+                    {visibleCols.has("email") && (
+                      <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                        {member.email || "—"}
+                      </td>
+                    )}
+                    {visibleCols.has("site_location") && (
+                      <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
+                        {member.site_location || "—"}
+                      </td>
+                    )}
                     <td className="px-2 py-3.5 text-center border-l border-foreground/[0.08]">
                       <ActionMenu
                         items={[
