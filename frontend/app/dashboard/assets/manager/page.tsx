@@ -139,20 +139,20 @@ const selectClass = "w-full bg-foreground/[0.03] border border-foreground/[0.08]
 const inputClass = "w-full bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-foreground/20 transition-colors";
 const labelClass = "block text-xs font-medium text-foreground/50 mb-1.5";
 
-/* ── Action Modal ──────────────────────────────────────── */
+/* ── Inline Action Form ───────────────────────────────── */
 
-function ActionModal({
+function ActionForm({
   action,
-  onClose,
   assets,
   members,
   departments,
+  onDone,
 }: {
   action: ActionType;
-  onClose: () => void;
   assets: Asset[];
   members: Member[];
   departments: Department[];
+  onDone: () => void;
 }) {
   const queryClient = useQueryClient();
   const config = ACTION_CONFIG[action];
@@ -164,8 +164,8 @@ function ActionModal({
   const [workSetup, setWorkSetup] = useState("");
   const [actionDate, setActionDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
+  const [success, setSuccess] = useState(false);
 
-  // Filter assets based on action type
   const availableAssets = useMemo(() => {
     switch (action) {
       case "check_out":
@@ -185,13 +185,11 @@ function ActionModal({
     }
   }, [assets, action]);
 
-  // Filter members by selected department
   const filteredMembers = useMemo(() => {
     if (!departmentId) return members;
     return members.filter((m) => m.department_id === departmentId);
   }, [members, departmentId]);
 
-  // Auto-fill location from member's site_location on check_out
   const selectedMember = useMemo(() => members.find((m) => m.id === memberId), [members, memberId]);
 
   function handleMemberChange(id: string) {
@@ -200,6 +198,17 @@ function ActionModal({
       const member = members.find((m) => m.id === id);
       if (member?.site_location) setToLocation(member.site_location);
     }
+  }
+
+  function resetForm() {
+    setAssetId("");
+    setDepartmentId("");
+    setMemberId("");
+    setToLocation("");
+    setWorkSetup("");
+    setActionDate(new Date().toISOString().slice(0, 10));
+    setNotes("");
+    setSuccess(false);
   }
 
   const mutation = useMutation({
@@ -217,11 +226,13 @@ function ActionModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["asset-actions"] });
       queryClient.invalidateQueries({ queryKey: ["assets"] });
-      onClose();
+      setSuccess(true);
+      setTimeout(() => {
+        resetForm();
+      }, 1500);
     },
   });
 
-  // Validation per action type
   const canSubmit = useMemo(() => {
     if (!assetId || mutation.isPending) return false;
     switch (action) {
@@ -243,236 +254,255 @@ function ActionModal({
   }, [assetId, action, memberId, toLocation, mutation.isPending]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-foreground/10 backdrop-blur-sm" onClick={onClose} />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        transition={{ duration: 0.2 }}
-        className="relative w-full max-w-md bg-background border border-foreground/[0.08] rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
-      >
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-foreground/[0.08] shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="text-foreground/60">{config.icon}</div>
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">{config.label}</h2>
-              <p className="text-xs text-foreground/45 mt-0.5">{config.description}</p>
-            </div>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 8 }}
+      transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+      className="border border-foreground/[0.08] rounded-2xl bg-foreground/[0.015] overflow-hidden"
+    >
+      {/* Form header */}
+      <div className="px-6 py-4 border-b border-foreground/[0.08] flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="text-foreground/50">{config.icon}</div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">{config.label}</h3>
+            <p className="text-xs text-foreground/40 mt-0.5">{config.description}</p>
           </div>
         </div>
+        <button
+          onClick={onDone}
+          className="p-1.5 rounded-lg text-foreground/30 hover:text-foreground/60 hover:bg-foreground/[0.05] transition-colors cursor-pointer"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
 
-        {/* Body */}
-        <div className="px-6 py-5 flex flex-col gap-4 overflow-y-auto flex-1">
-          {/* Asset select — all actions */}
-          <div>
-            <label className={labelClass}>
-              Select Asset <span className="text-red-500">*</span>
-            </label>
-            <select value={assetId} onChange={(e) => setAssetId(e.target.value)} className={selectClass}>
-              <option value="">Choose an asset...</option>
-              {availableAssets.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} — {a.category} {a.location ? `(${a.location})` : ""}
-                </option>
-              ))}
-            </select>
-            {availableAssets.length === 0 && (
-              <p className="text-xs text-foreground/35 mt-1.5">No eligible assets for this action.</p>
-            )}
+      {/* Success state */}
+      {success ? (
+        <div className="px-6 py-10 flex flex-col items-center gap-2">
+          <div className="w-10 h-10 rounded-full bg-foreground/[0.06] flex items-center justify-center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/60">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
           </div>
+          <p className="text-sm font-medium text-foreground/70">Action completed successfully</p>
+        </div>
+      ) : (
+        <>
+          {/* Form fields */}
+          <div className="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4">
+            {/* Asset select — all actions */}
+            <div className={action === "check_out" || action === "reserve" ? "" : "sm:col-span-2"}>
+              <label className={labelClass}>
+                Select Asset <span className="text-red-500">*</span>
+              </label>
+              <select value={assetId} onChange={(e) => setAssetId(e.target.value)} className={selectClass}>
+                <option value="">Choose an asset...</option>
+                {availableAssets.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} — {a.category} {a.location ? `(${a.location})` : ""}
+                  </option>
+                ))}
+              </select>
+              {availableAssets.length === 0 && (
+                <p className="text-xs text-foreground/35 mt-1.5">No eligible assets for this action.</p>
+              )}
+            </div>
 
-          {/* ── Check Out fields ── */}
-          {action === "check_out" && (
-            <>
-              <div>
-                <label className={labelClass}>Department</label>
-                <select
-                  value={departmentId}
-                  onChange={(e) => { setDepartmentId(e.target.value); setMemberId(""); }}
-                  className={selectClass}
-                >
-                  <option value="">All Departments</option>
-                  {departments.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>
-                  Assign to Member <span className="text-red-500">*</span>
-                </label>
-                <select value={memberId} onChange={(e) => handleMemberChange(e.target.value)} className={selectClass}>
-                  <option value="">Choose a member...</option>
-                  {filteredMembers.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.first_name} {m.last_name} {m.site_location ? `(${m.site_location})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Location</label>
-                <input
-                  type="text"
-                  value={toLocation}
-                  onChange={(e) => setToLocation(e.target.value)}
-                  placeholder={selectedMember?.site_location ? "Auto-filled from member" : "Enter location..."}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Work Setup</label>
-                <select value={workSetup} onChange={(e) => setWorkSetup(e.target.value)} className={selectClass}>
-                  <option value="">Select work setup...</option>
-                  {WORK_SETUP_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Checkout Date</label>
-                <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
-              </div>
-            </>
-          )}
+            {/* ── Check Out fields ── */}
+            {action === "check_out" && (
+              <>
+                <div>
+                  <label className={labelClass}>Department</label>
+                  <select
+                    value={departmentId}
+                    onChange={(e) => { setDepartmentId(e.target.value); setMemberId(""); }}
+                    className={selectClass}
+                  >
+                    <option value="">All Departments</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>
+                    Assign to Member <span className="text-red-500">*</span>
+                  </label>
+                  <select value={memberId} onChange={(e) => handleMemberChange(e.target.value)} className={selectClass}>
+                    <option value="">Choose a member...</option>
+                    {filteredMembers.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.first_name} {m.last_name} {m.site_location ? `(${m.site_location})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Location</label>
+                  <input
+                    type="text"
+                    value={toLocation}
+                    onChange={(e) => setToLocation(e.target.value)}
+                    placeholder={selectedMember?.site_location ? "Auto-filled from member" : "Enter location..."}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Work Setup</label>
+                  <select value={workSetup} onChange={(e) => setWorkSetup(e.target.value)} className={selectClass}>
+                    <option value="">Select work setup...</option>
+                    {WORK_SETUP_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Checkout Date</label>
+                  <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
+                </div>
+              </>
+            )}
 
-          {/* ── Check In fields ── */}
-          {action === "check_in" && (
-            <>
-              <div>
-                <label className={labelClass}>Return Location</label>
-                <input
-                  type="text"
-                  value={toLocation}
-                  onChange={(e) => setToLocation(e.target.value)}
-                  placeholder="Where is the asset being returned to..."
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Check-in Date</label>
-                <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
-              </div>
-            </>
-          )}
+            {/* ── Check In fields ── */}
+            {action === "check_in" && (
+              <>
+                <div>
+                  <label className={labelClass}>Return Location</label>
+                  <input
+                    type="text"
+                    value={toLocation}
+                    onChange={(e) => setToLocation(e.target.value)}
+                    placeholder="Where is the asset being returned to..."
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Check-in Date</label>
+                  <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
+                </div>
+              </>
+            )}
 
-          {/* ── Move fields ── */}
-          {action === "move" && (
-            <>
-              <div>
-                <label className={labelClass}>
-                  Destination Location <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={toLocation}
-                  onChange={(e) => setToLocation(e.target.value)}
-                  placeholder="Enter new location..."
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Move Date</label>
-                <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
-              </div>
-            </>
-          )}
+            {/* ── Move fields ── */}
+            {action === "move" && (
+              <>
+                <div>
+                  <label className={labelClass}>
+                    Destination Location <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={toLocation}
+                    onChange={(e) => setToLocation(e.target.value)}
+                    placeholder="Enter new location..."
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Move Date</label>
+                  <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
+                </div>
+              </>
+            )}
 
-          {/* ── Maintenance fields ── */}
-          {action === "maintenance" && (
-            <>
+            {/* ── Maintenance fields ── */}
+            {action === "maintenance" && (
               <div>
                 <label className={labelClass}>Scheduled Date</label>
                 <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
               </div>
-            </>
-          )}
+            )}
 
-          {/* ── Dispose fields ── */}
-          {action === "dispose" && (
-            <>
+            {/* ── Dispose fields ── */}
+            {action === "dispose" && (
               <div>
                 <label className={labelClass}>Disposal Date</label>
                 <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
               </div>
-            </>
-          )}
+            )}
 
-          {/* ── Reserve fields ── */}
-          {action === "reserve" && (
-            <>
-              <div>
-                <label className={labelClass}>Department</label>
-                <select
-                  value={departmentId}
-                  onChange={(e) => { setDepartmentId(e.target.value); setMemberId(""); }}
-                  className={selectClass}
-                >
-                  <option value="">All Departments</option>
-                  {departments.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>
-                  Reserve for Member <span className="text-red-500">*</span>
-                </label>
-                <select value={memberId} onChange={(e) => setMemberId(e.target.value)} className={selectClass}>
-                  <option value="">Choose a member...</option>
-                  {filteredMembers.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.first_name} {m.last_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Reserve Date</label>
-                <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
-              </div>
-            </>
-          )}
+            {/* ── Reserve fields ── */}
+            {action === "reserve" && (
+              <>
+                <div>
+                  <label className={labelClass}>Department</label>
+                  <select
+                    value={departmentId}
+                    onChange={(e) => { setDepartmentId(e.target.value); setMemberId(""); }}
+                    className={selectClass}
+                  >
+                    <option value="">All Departments</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>
+                    Reserve for Member <span className="text-red-500">*</span>
+                  </label>
+                  <select value={memberId} onChange={(e) => setMemberId(e.target.value)} className={selectClass}>
+                    <option value="">Choose a member...</option>
+                    {filteredMembers.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.first_name} {m.last_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Reserve Date</label>
+                  <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
+                </div>
+              </>
+            )}
 
-          {/* Notes — all actions */}
-          <div>
-            <label className={labelClass}>Notes</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes..."
-              rows={2}
-              className={`${inputClass} resize-none`}
-            />
+            {/* Notes — all actions, full width */}
+            <div className="sm:col-span-2">
+              <label className={labelClass}>Notes</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Optional notes..."
+                rows={2}
+                className={`${inputClass} resize-none`}
+              />
+            </div>
           </div>
 
+          {/* Error */}
           {mutation.isError && (
-            <p className="text-xs text-red-500">
-              {(mutation.error as Error).message || "Something went wrong."}
-            </p>
+            <div className="px-6 pb-3">
+              <p className="text-xs text-red-500">
+                {(mutation.error as Error).message || "Something went wrong."}
+              </p>
+            </div>
           )}
-        </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-foreground/[0.08] flex justify-end gap-3 shrink-0">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-sm font-medium text-foreground/60 hover:text-foreground/80 hover:bg-foreground/[0.05] transition-colors cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => mutation.mutate()}
-            disabled={!canSubmit}
-            className="px-5 py-2 rounded-xl text-sm font-medium bg-foreground text-background hover:opacity-90 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {mutation.isPending ? "Processing..." : `Confirm ${config.label}`}
-          </button>
-        </div>
-      </motion.div>
-    </div>
+          {/* Footer */}
+          <div className="px-6 py-4 border-t border-foreground/[0.08] flex justify-end gap-3">
+            <button
+              onClick={onDone}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-foreground/60 hover:text-foreground/80 hover:bg-foreground/[0.05] transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => mutation.mutate()}
+              disabled={!canSubmit}
+              className="px-5 py-2 rounded-xl text-sm font-medium bg-foreground text-background hover:opacity-90 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {mutation.isPending ? "Processing..." : `Confirm ${config.label}`}
+            </button>
+          </div>
+        </>
+      )}
+    </motion.div>
   );
 }
 
@@ -496,6 +526,10 @@ export default function AssetManagerPage() {
     queryFn: fetchDepartments,
   });
 
+  function handleActionClick(action: ActionType) {
+    setActiveAction((prev) => (prev === action ? null : action));
+  }
+
   return (
     <motion.div variants={stagger} initial="hidden" animate="visible">
       {/* Header */}
@@ -507,22 +541,44 @@ export default function AssetManagerPage() {
       </motion.div>
 
       {/* Action Buttons */}
-      <motion.div variants={fadeUp} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-10">
+      <motion.div variants={fadeUp} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         {(Object.keys(ACTION_CONFIG) as ActionType[]).map((action) => {
           const cfg = ACTION_CONFIG[action];
+          const isActive = activeAction === action;
           return (
             <motion.button
               key={action}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setActiveAction(action)}
-              className="group relative flex flex-col items-center gap-2.5 px-4 py-5 rounded-2xl border border-foreground/[0.08] bg-foreground/[0.03] hover:bg-foreground/[0.06] transition-all duration-200 cursor-pointer"
+              onClick={() => handleActionClick(action)}
+              className={`group relative flex flex-col items-center gap-2.5 px-4 py-5 rounded-2xl border transition-all duration-200 cursor-pointer ${
+                isActive
+                  ? "border-foreground/20 bg-foreground/[0.08] ring-1 ring-foreground/[0.12]"
+                  : "border-foreground/[0.08] bg-foreground/[0.03] hover:bg-foreground/[0.06]"
+              }`}
             >
-              <div className="text-foreground/60 transition-transform duration-200 group-hover:scale-110 group-hover:text-foreground/80">
+              {isActive && (
+                <motion.div
+                  layoutId="action-active-indicator"
+                  className="absolute -bottom-[1px] left-1/2 -translate-x-1/2 w-8 h-[3px] bg-foreground/60 rounded-full"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              )}
+              <div className={`transition-transform duration-200 ${
+                isActive
+                  ? "text-foreground scale-110"
+                  : "text-foreground/60 group-hover:scale-110 group-hover:text-foreground/80"
+              }`}>
                 {cfg.icon}
               </div>
-              <span className="text-sm font-semibold text-foreground/70 group-hover:text-foreground/90">{cfg.label}</span>
-              <span className="text-[11px] text-foreground/35 leading-tight text-center">
+              <span className={`text-sm font-semibold transition-colors ${
+                isActive ? "text-foreground" : "text-foreground/70 group-hover:text-foreground/90"
+              }`}>
+                {cfg.label}
+              </span>
+              <span className={`text-[11px] leading-tight text-center transition-colors ${
+                isActive ? "text-foreground/50" : "text-foreground/35"
+              }`}>
                 {cfg.description}
               </span>
             </motion.button>
@@ -530,15 +586,16 @@ export default function AssetManagerPage() {
         })}
       </motion.div>
 
-      {/* Action Modal */}
-      <AnimatePresence>
+      {/* Inline Action Form */}
+      <AnimatePresence mode="wait">
         {activeAction && (
-          <ActionModal
+          <ActionForm
+            key={activeAction}
             action={activeAction}
-            onClose={() => setActiveAction(null)}
             assets={assets}
             members={members}
             departments={departments}
+            onDone={() => setActiveAction(null)}
           />
         )}
       </AnimatePresence>
