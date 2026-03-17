@@ -234,12 +234,12 @@ function ActionForm({
   });
 
   const canSubmit = useMemo(() => {
-    if (!assetId || mutation.isPending) return false;
+    if (!assetId || !actionDate || !notes.trim() || mutation.isPending) return false;
     switch (action) {
       case "check_out":
-        return !!memberId;
+        return !!departmentId && !!memberId && !!toLocation.trim() && !!workSetup;
       case "check_in":
-        return true;
+        return !!toLocation.trim();
       case "move":
         return !!toLocation.trim();
       case "maintenance":
@@ -247,11 +247,11 @@ function ActionForm({
       case "dispose":
         return true;
       case "reserve":
-        return !!memberId;
+        return !!departmentId && !!memberId;
       default:
         return true;
     }
-  }, [assetId, action, memberId, toLocation, mutation.isPending]);
+  }, [assetId, action, departmentId, memberId, toLocation, workSetup, actionDate, notes, mutation.isPending]);
 
   return (
     <motion.div
@@ -317,13 +317,15 @@ function ActionForm({
             {action === "check_out" && (
               <>
                 <div>
-                  <label className={labelClass}>Department</label>
+                  <label className={labelClass}>
+                    Department <span className="text-red-500">*</span>
+                  </label>
                   <select
                     value={departmentId}
                     onChange={(e) => { setDepartmentId(e.target.value); setMemberId(""); }}
                     className={selectClass}
                   >
-                    <option value="">All Departments</option>
+                    <option value="">Choose Department...</option>
                     {departments.map((d) => (
                       <option key={d.id} value={d.id}>{d.name}</option>
                     ))}
@@ -343,7 +345,9 @@ function ActionForm({
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>Location</label>
+                  <label className={labelClass}>
+                    Location <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={toLocation}
@@ -353,7 +357,9 @@ function ActionForm({
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Work Setup</label>
+                  <label className={labelClass}>
+                    Work Setup <span className="text-red-500">*</span>
+                  </label>
                   <select value={workSetup} onChange={(e) => setWorkSetup(e.target.value)} className={selectClass}>
                     <option value="">Select work setup...</option>
                     {WORK_SETUP_OPTIONS.map((o) => (
@@ -362,7 +368,9 @@ function ActionForm({
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>Checkout Date</label>
+                  <label className={labelClass}>
+                    Checkout Date <span className="text-red-500">*</span>
+                  </label>
                   <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
                 </div>
               </>
@@ -372,7 +380,9 @@ function ActionForm({
             {action === "check_in" && (
               <>
                 <div>
-                  <label className={labelClass}>Return Location</label>
+                  <label className={labelClass}>
+                    Return Location <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={toLocation}
@@ -382,7 +392,9 @@ function ActionForm({
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Check-in Date</label>
+                  <label className={labelClass}>
+                    Check-in Date <span className="text-red-500">*</span>
+                  </label>
                   <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
                 </div>
               </>
@@ -404,7 +416,9 @@ function ActionForm({
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Move Date</label>
+                  <label className={labelClass}>
+                    Move Date <span className="text-red-500">*</span>
+                  </label>
                   <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
                 </div>
               </>
@@ -413,7 +427,9 @@ function ActionForm({
             {/* ── Maintenance fields ── */}
             {action === "maintenance" && (
               <div>
-                <label className={labelClass}>Scheduled Date</label>
+                <label className={labelClass}>
+                  Scheduled Date <span className="text-red-500">*</span>
+                </label>
                 <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
               </div>
             )}
@@ -421,7 +437,9 @@ function ActionForm({
             {/* ── Dispose fields ── */}
             {action === "dispose" && (
               <div>
-                <label className={labelClass}>Disposal Date</label>
+                <label className={labelClass}>
+                  Disposal Date <span className="text-red-500">*</span>
+                </label>
                 <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
               </div>
             )}
@@ -430,13 +448,15 @@ function ActionForm({
             {action === "reserve" && (
               <>
                 <div>
-                  <label className={labelClass}>Department</label>
+                  <label className={labelClass}>
+                    Department <span className="text-red-500">*</span>
+                  </label>
                   <select
                     value={departmentId}
                     onChange={(e) => { setDepartmentId(e.target.value); setMemberId(""); }}
                     className={selectClass}
                   >
-                    <option value="">All Departments</option>
+                    <option value="">Choose Department...</option>
                     {departments.map((d) => (
                       <option key={d.id} value={d.id}>{d.name}</option>
                     ))}
@@ -456,7 +476,9 @@ function ActionForm({
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>Reserve Date</label>
+                  <label className={labelClass}>
+                    Reserve Date <span className="text-red-500">*</span>
+                  </label>
                   <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
                 </div>
               </>
@@ -464,11 +486,13 @@ function ActionForm({
 
             {/* Notes — all actions, full width */}
             <div className="sm:col-span-2">
-              <label className={labelClass}>Notes</label>
+              <label className={labelClass}>
+                Notes <span className="text-red-500">*</span>
+              </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Optional notes..."
+                placeholder="Enter notes..."
                 rows={2}
                 className={`${inputClass} resize-none`}
               />
