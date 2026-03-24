@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -138,6 +138,145 @@ const WORK_SETUP_OPTIONS = [
 const selectClass = "w-full bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground/20 transition-colors appearance-none cursor-pointer";
 const inputClass = "w-full bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-foreground/20 transition-colors";
 const labelClass = "block text-xs font-medium text-foreground/50 mb-1.5";
+
+/* ── Searchable Select ────────────────────────────────── */
+
+function SearchableSelect({
+  value,
+  onChange,
+  options,
+  placeholder = "Choose...",
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      setSearch("");
+      setTimeout(() => searchRef.current?.focus(), 0);
+    }
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return options;
+    const q = search.toLowerCase();
+    return options.filter((o) => o.label.toLowerCase().includes(q));
+  }, [options, search]);
+
+  const selectedLabel = options.find((o) => o.value === value)?.label;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((p) => !p)}
+        className={`${selectClass} text-left flex items-center justify-between`}
+      >
+        <span className={value ? "text-foreground" : "text-foreground/30"}>
+          {selectedLabel || placeholder}
+        </span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/30 shrink-0 ml-2">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-background border border-foreground/[0.1] rounded-xl shadow-lg overflow-hidden">
+          <div className="p-2 border-b border-foreground/[0.08]">
+            <input
+              ref={searchRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search..."
+              className="w-full bg-foreground/[0.04] border border-foreground/[0.08] rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-foreground/20 transition-colors"
+            />
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <p className="px-3 py-3 text-xs text-foreground/35 text-center">No results found.</p>
+            ) : (
+              filtered.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => { onChange(o.value); setOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 text-sm transition-colors cursor-pointer hover:bg-foreground/[0.05] ${
+                    o.value === value ? "bg-foreground/[0.06] text-foreground font-medium" : "text-foreground/70"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Styled Date Picker ───────────────────────────────── */
+
+function StyledDatePicker({
+  value,
+  onChange,
+  placeholder = "Select date...",
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+}) {
+  const hiddenRef = useRef<HTMLInputElement>(null);
+
+  const displayValue = useMemo(() => {
+    if (!value) return "";
+    const d = new Date(value + "T00:00:00");
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }, [value]);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => hiddenRef.current?.showPicker()}
+        className={`${selectClass} text-left flex items-center justify-between`}
+      >
+        <span className={value ? "text-foreground" : "text-foreground/30"}>
+          {displayValue || placeholder}
+        </span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/30 shrink-0 ml-2">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+          <line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+        </svg>
+      </button>
+      <input
+        ref={hiddenRef}
+        type="date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 opacity-0 pointer-events-none"
+        tabIndex={-1}
+      />
+    </div>
+  );
+}
 
 /* ── Inline Action Form ───────────────────────────────── */
 
@@ -300,14 +439,15 @@ function ActionForm({
               <label className={labelClass}>
                 Select Asset <span className="text-red-500">*</span>
               </label>
-              <select value={assetId} onChange={(e) => setAssetId(e.target.value)} className={selectClass}>
-                <option value="">Choose an asset...</option>
-                {availableAssets.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} — {a.category} {a.location ? `(${a.location})` : ""}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={assetId}
+                onChange={setAssetId}
+                placeholder="Choose an asset..."
+                options={availableAssets.map((a) => ({
+                  value: a.id,
+                  label: `${a.name} — ${a.category}${a.location ? ` (${a.location})` : ""}`,
+                }))}
+              />
               {availableAssets.length === 0 && (
                 <p className="text-xs text-foreground/35 mt-1.5">No eligible assets for this action.</p>
               )}
@@ -320,29 +460,26 @@ function ActionForm({
                   <label className={labelClass}>
                     Department <span className="text-red-500">*</span>
                   </label>
-                  <select
+                  <SearchableSelect
                     value={departmentId}
-                    onChange={(e) => { setDepartmentId(e.target.value); setMemberId(""); }}
-                    className={selectClass}
-                  >
-                    <option value="">Choose Department...</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => { setDepartmentId(val); setMemberId(""); }}
+                    placeholder="Choose Department..."
+                    options={departments.map((d) => ({ value: d.id, label: d.name }))}
+                  />
                 </div>
                 <div>
                   <label className={labelClass}>
                     Assign to Member <span className="text-red-500">*</span>
                   </label>
-                  <select value={memberId} onChange={(e) => handleMemberChange(e.target.value)} className={selectClass}>
-                    <option value="">Choose a member...</option>
-                    {filteredMembers.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.first_name} {m.last_name} {m.site_location ? `(${m.site_location})` : ""}
-                      </option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={memberId}
+                    onChange={handleMemberChange}
+                    placeholder="Choose a member..."
+                    options={filteredMembers.map((m) => ({
+                      value: m.id,
+                      label: `${m.first_name} ${m.last_name}`,
+                    }))}
+                  />
                 </div>
                 <div>
                   <label className={labelClass}>
@@ -360,18 +497,18 @@ function ActionForm({
                   <label className={labelClass}>
                     Work Setup <span className="text-red-500">*</span>
                   </label>
-                  <select value={workSetup} onChange={(e) => setWorkSetup(e.target.value)} className={selectClass}>
-                    <option value="">Select work setup...</option>
-                    {WORK_SETUP_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={workSetup}
+                    onChange={setWorkSetup}
+                    placeholder="Select work setup..."
+                    options={WORK_SETUP_OPTIONS}
+                  />
                 </div>
                 <div>
                   <label className={labelClass}>
                     Checkout Date <span className="text-red-500">*</span>
                   </label>
-                  <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
+                  <StyledDatePicker value={actionDate} onChange={setActionDate} />
                 </div>
               </>
             )}
@@ -395,7 +532,7 @@ function ActionForm({
                   <label className={labelClass}>
                     Check-in Date <span className="text-red-500">*</span>
                   </label>
-                  <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
+                  <StyledDatePicker value={actionDate} onChange={setActionDate} />
                 </div>
               </>
             )}
@@ -419,7 +556,7 @@ function ActionForm({
                   <label className={labelClass}>
                     Move Date <span className="text-red-500">*</span>
                   </label>
-                  <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
+                  <StyledDatePicker value={actionDate} onChange={setActionDate} />
                 </div>
               </>
             )}
@@ -430,7 +567,7 @@ function ActionForm({
                 <label className={labelClass}>
                   Scheduled Date <span className="text-red-500">*</span>
                 </label>
-                <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
+                <StyledDatePicker value={actionDate} onChange={setActionDate} />
               </div>
             )}
 
@@ -440,7 +577,7 @@ function ActionForm({
                 <label className={labelClass}>
                   Disposal Date <span className="text-red-500">*</span>
                 </label>
-                <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
+                <StyledDatePicker value={actionDate} onChange={setActionDate} />
               </div>
             )}
 
@@ -451,35 +588,32 @@ function ActionForm({
                   <label className={labelClass}>
                     Department <span className="text-red-500">*</span>
                   </label>
-                  <select
+                  <SearchableSelect
                     value={departmentId}
-                    onChange={(e) => { setDepartmentId(e.target.value); setMemberId(""); }}
-                    className={selectClass}
-                  >
-                    <option value="">Choose Department...</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => { setDepartmentId(val); setMemberId(""); }}
+                    placeholder="Choose Department..."
+                    options={departments.map((d) => ({ value: d.id, label: d.name }))}
+                  />
                 </div>
                 <div>
                   <label className={labelClass}>
                     Reserve for Member <span className="text-red-500">*</span>
                   </label>
-                  <select value={memberId} onChange={(e) => setMemberId(e.target.value)} className={selectClass}>
-                    <option value="">Choose a member...</option>
-                    {filteredMembers.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.first_name} {m.last_name}
-                      </option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={memberId}
+                    onChange={setMemberId}
+                    placeholder="Choose a member..."
+                    options={filteredMembers.map((m) => ({
+                      value: m.id,
+                      label: `${m.first_name} ${m.last_name}`,
+                    }))}
+                  />
                 </div>
                 <div>
                   <label className={labelClass}>
                     Reserve Date <span className="text-red-500">*</span>
                   </label>
-                  <input type="date" value={actionDate} onChange={(e) => setActionDate(e.target.value)} className={inputClass} />
+                  <StyledDatePicker value={actionDate} onChange={setActionDate} />
                 </div>
               </>
             )}
@@ -581,13 +715,6 @@ export default function AssetManagerPage() {
                   : "border-foreground/[0.08] bg-foreground/[0.03] hover:bg-foreground/[0.06]"
               }`}
             >
-              {isActive && (
-                <motion.div
-                  layoutId="action-active-indicator"
-                  className="absolute -bottom-[1px] left-1/2 -translate-x-1/2 w-8 h-[3px] bg-foreground/60 rounded-full"
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                />
-              )}
               <div className={`transition-transform duration-200 ${
                 isActive
                   ? "text-foreground scale-110"
