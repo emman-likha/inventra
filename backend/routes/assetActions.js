@@ -90,8 +90,12 @@ router.post("/", requireAuth, async (req, res) => {
     case "check_in":
       assetUpdates.status = "available";
       assetUpdates.assigned_to = null;
+      // Return asset to its inventory_location (home base), or use provided to_location
       if (to_location) {
         assetUpdates.location = to_location;
+      } else if (asset.inventory_location) {
+        assetUpdates.location = asset.inventory_location;
+        actionRecord.to_location = asset.inventory_location;
       }
       break;
 

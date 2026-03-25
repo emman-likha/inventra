@@ -10,6 +10,7 @@ interface Asset {
   name: string;
   category: string;
   location: string | null;
+  inventory_location: string | null;
   status: string;
   value: number | null;
   assigned_to: string | null;

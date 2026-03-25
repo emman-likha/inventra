@@ -19,6 +19,7 @@ interface Asset {
   name: string;
   category: string;
   location: string | null;
+  inventory_location: string | null;
   status: string;
   assigned_to: string | null;
   assigned_member: { id: string; first_name: string; last_name: string } | null;
@@ -331,6 +332,17 @@ function ActionForm({
 
   const selectedMember = useMemo(() => members.find((m) => m.id === memberId), [members, memberId]);
 
+  const selectedAsset = useMemo(() => assets.find((a) => a.id === assetId), [assets, assetId]);
+
+  const inventoryLocations = useMemo(() => {
+    const locs = new Set(assets.map((a) => a.inventory_location).filter(Boolean) as string[]);
+    return Array.from(locs).sort().map((loc) => ({ value: loc, label: loc }));
+  }, [assets]);
+
+  function handleAssetChange(id: string) {
+    setAssetId(id);
+  }
+
   function handleMemberChange(id: string) {
     setMemberId(id);
     if (action === "check_out") {
@@ -373,7 +385,7 @@ function ActionForm({
   });
 
   const canSubmit = useMemo(() => {
-    if (!assetId || !actionDate || !notes.trim() || mutation.isPending) return false;
+    if (!assetId || !actionDate || mutation.isPending) return false;
     switch (action) {
       case "check_out":
         return !!departmentId && !!memberId && !!toLocation.trim() && !!workSetup;
@@ -441,7 +453,7 @@ function ActionForm({
               </label>
               <SearchableSelect
                 value={assetId}
-                onChange={setAssetId}
+                onChange={handleAssetChange}
                 placeholder="Choose an asset..."
                 options={availableAssets.map((a) => ({
                   value: a.id,
@@ -518,14 +530,23 @@ function ActionForm({
               <>
                 <div>
                   <label className={labelClass}>
+                    Currently Assigned To
+                  </label>
+                  <div className={`${selectClass} text-left opacity-60 cursor-default`}>
+                    {selectedAsset?.assigned_member
+                      ? `${selectedAsset.assigned_member.first_name} ${selectedAsset.assigned_member.last_name}`
+                      : <span className="text-foreground/30">Select an asset first</span>}
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>
                     Return Location <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
+                  <SearchableSelect
                     value={toLocation}
-                    onChange={(e) => setToLocation(e.target.value)}
-                    placeholder="Where is the asset being returned to..."
-                    className={inputClass}
+                    onChange={setToLocation}
+                    placeholder="Choose storage location..."
+                    options={inventoryLocations}
                   />
                 </div>
                 <div>
@@ -621,7 +642,7 @@ function ActionForm({
             {/* Notes — all actions, full width */}
             <div className="sm:col-span-2">
               <label className={labelClass}>
-                Notes <span className="text-red-500">*</span>
+                Notes
               </label>
               <textarea
                 value={notes}
@@ -667,7 +688,7 @@ function ActionForm({
 /* ── Main Page ─────────────────────────────────────────── */
 
 export default function AssetManagerPage() {
-  const [activeAction, setActiveAction] = useState<ActionType | null>(null);
+  const [activeAction, setActiveAction] = useState<ActionType | null>("check_out");
 
   const { data: assets = [] } = useQuery<Asset[]>({
     queryKey: ["assets"],
@@ -699,40 +720,38 @@ export default function AssetManagerPage() {
       </motion.div>
 
       {/* Action Buttons */}
-      <motion.div variants={fadeUp} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <motion.div variants={fadeUp} className="grid grid-cols-6 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mb-6">
         {(Object.keys(ACTION_CONFIG) as ActionType[]).map((action) => {
           const cfg = ACTION_CONFIG[action];
           const isActive = activeAction === action;
           return (
-            <motion.button
+            <button
               key={action}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
               onClick={() => handleActionClick(action)}
-              className={`group relative flex flex-col items-center gap-2.5 px-4 py-5 rounded-2xl border transition-all duration-200 cursor-pointer ${
+              className={`group relative flex flex-col items-center gap-1 sm:gap-2.5 px-1.5 py-3 sm:px-4 sm:py-5 rounded-xl sm:rounded-2xl border transition-all duration-200 cursor-pointer ${
                 isActive
                   ? "border-foreground/20 bg-foreground/[0.08] ring-1 ring-foreground/[0.12]"
                   : "border-foreground/[0.08] bg-foreground/[0.03] hover:bg-foreground/[0.06]"
               }`}
             >
-              <div className={`transition-transform duration-200 ${
+              <div className={`transition-colors duration-200 ${
                 isActive
-                  ? "text-foreground scale-110"
-                  : "text-foreground/60 group-hover:scale-110 group-hover:text-foreground/80"
+                  ? "text-foreground"
+                  : "text-foreground/60 group-hover:text-foreground/80"
               }`}>
                 {cfg.icon}
               </div>
-              <span className={`text-sm font-semibold transition-colors ${
+              <span className={`hidden sm:block text-sm font-semibold transition-colors ${
                 isActive ? "text-foreground" : "text-foreground/70 group-hover:text-foreground/90"
               }`}>
                 {cfg.label}
               </span>
-              <span className={`text-[11px] leading-tight text-center transition-colors ${
+              <span className={`hidden sm:block text-[11px] leading-tight text-center transition-colors ${
                 isActive ? "text-foreground/50" : "text-foreground/35"
               }`}>
                 {cfg.description}
               </span>
-            </motion.button>
+            </button>
           );
         })}
       </motion.div>

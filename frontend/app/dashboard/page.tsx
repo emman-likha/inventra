@@ -10,6 +10,7 @@ interface Asset {
   name: string;
   category: string;
   location: string | null;
+  inventory_location: string | null;
   status: string;
   value: number | null;
   assigned_to: string | null;
@@ -139,7 +140,7 @@ export default function DashboardPage() {
                   >
                     <td className="px-5 py-3.5 text-sm font-medium text-foreground">{asset.name}</td>
                     <td className="px-5 py-3.5 text-sm text-foreground/55 hidden sm:table-cell">{asset.category}</td>
-                    <td className="px-5 py-3.5 text-sm text-foreground/55 hidden md:table-cell">{asset.location || "—"}</td>
+                    <td className="px-5 py-3.5 text-sm text-foreground/55 hidden md:table-cell">{asset.assigned_to ? (asset.location || "—") : (asset.inventory_location || "—")}</td>
                     <td className="px-5 py-3.5">
                       <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLES[asset.status] ?? ""}`}>
                         {STATUS_LABELS[asset.status] ?? asset.status}

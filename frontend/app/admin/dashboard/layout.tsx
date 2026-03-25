@@ -10,7 +10,6 @@ const sidebarItems: SidebarItem[] = [
   { label: "Overview", href: "/admin/dashboard", icon: "home" },
   { label: "All Assets", href: "/admin/assets", icon: "box" },
   { label: "Users", href: "/admin/users", icon: "users" },
-  { label: "Categories", href: "/admin/categories", icon: "tag" },
   { label: "Audit Log", href: "/admin/audit", icon: "clipboard" },
   { label: "Reports", href: "/admin/reports", icon: "chart" },
   { label: "Settings", href: "/admin/settings", icon: "settings" },

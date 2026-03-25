@@ -65,6 +65,7 @@ router.post("/", requireAuth, async (req, res) => {
     name: name.trim(),
     category: category.trim(),
     location: resolvedLocation,
+    inventory_location: location?.trim() || null,
     status: assigned_to ? "checked_out" : (status || "available"),
     value: value ?? null,
     assigned_to: assigned_to || null,
@@ -87,6 +88,7 @@ router.post("/import", requireAuth, async (req, res) => {
     name: a.name,
     category: a.category,
     location: a.location || null,
+    inventory_location: a.location || null,
     status: a.status || "available",
     value: a.value ?? null,
     created_by: req.user.id,
@@ -106,7 +108,10 @@ router.put("/:id", requireAuth, async (req, res) => {
   const updates = {};
   if (name !== undefined) updates.name = name.trim();
   if (category !== undefined) updates.category = category?.trim() || null;
-  if (location !== undefined) updates.location = location?.trim() || null;
+  if (location !== undefined) {
+    updates.location = location?.trim() || null;
+    updates.inventory_location = location?.trim() || null;
+  }
   if (status !== undefined) updates.status = status;
   if (value !== undefined) updates.value = value;
   if (assigned_to !== undefined) {

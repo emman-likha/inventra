@@ -28,6 +28,7 @@ interface Asset {
   name: string;
   category: string;
   location: string | null;
+  inventory_location: string | null;
   status: string;
   value: number | null;
   assigned_to: string | null;
@@ -371,7 +372,7 @@ export default function MyAssetsPage() {
                     )}
                     {visibleCols.has("location") && (
                       <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
-                        {asset.location || "—"}
+                        {asset.assigned_to ? (asset.location || "—") : (asset.inventory_location || "—")}
                       </td>
                     )}
                     {visibleCols.has("status") && (
