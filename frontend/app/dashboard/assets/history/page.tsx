@@ -37,6 +37,12 @@ export default function MovementHistoryPage() {
     queryFn: fetchAssetActions,
   });
 
+  function isPending(act: AssetAction) {
+    if (!act.action_date) return false;
+    const scheduled = new Date(act.action_date);
+    return scheduled > new Date();
+  }
+
   const filteredActions = useMemo(() => {
     if (!search.trim()) return actions;
     const q = search.toLowerCase();
@@ -49,7 +55,9 @@ export default function MovementHistoryPage() {
         a.member?.last_name?.toLowerCase().includes(q) ||
         a.from_location?.toLowerCase().includes(q) ||
         a.to_location?.toLowerCase().includes(q) ||
-        a.notes?.toLowerCase().includes(q)
+        a.notes?.toLowerCase().includes(q) ||
+        (isPending(a) && "pending".includes(q)) ||
+        (!isPending(a) && "completed".includes(q))
     );
   }, [actions, search]);
 
@@ -108,7 +116,7 @@ export default function MovementHistoryPage() {
             <table className="w-full">
               <thead className="sticky top-0 z-10 bg-background">
                 <tr className="border-b border-foreground/[0.08]">
-                  {["Asset", "Action", "Department", "Member", "From", "To", "Work Setup", "Notes", "Date"].map((h) => (
+                  {["Asset", "Action", "Status", "Department", "Member", "From", "To", "Work Setup", "Notes", "Date"].map((h) => (
                     <th
                       key={h}
                       className="text-left pl-5 pr-2 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider whitespace-nowrap select-none"
@@ -132,6 +140,17 @@ export default function MovementHistoryPage() {
                         {ACTION_LABELS[act.action] ?? act.action}
                       </span>
                     </td>
+                    <td className="pl-5 pr-2 py-3.5 whitespace-nowrap">
+                      {isPending(act) ? (
+                        <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600">
+                          Pending
+                        </span>
+                      ) : (
+                        <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600">
+                          Completed
+                        </span>
+                      )}
+                    </td>
                     <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
                       {act.department?.name || "—"}
                     </td>
@@ -153,17 +172,24 @@ export default function MovementHistoryPage() {
                       {act.notes || "—"}
                     </td>
                     <td className="pl-5 pr-2 py-3.5 text-xs text-foreground/40 whitespace-nowrap">
-                      {new Date(act.action_date || act.created_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}{" "}
-                      <span className="text-foreground/25">
-                        {new Date(act.action_date || act.created_at).toLocaleTimeString("en-US", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
+                      {(() => {
+                        const d = new Date(act.action_date || act.created_at);
+                        return (
+                          <>
+                            {d.toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}{" "}
+                            <span className="text-foreground/25">
+                              {d.toLocaleTimeString("en-US", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          </>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}

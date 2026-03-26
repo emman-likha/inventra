@@ -17,7 +17,6 @@ const ASSET_COLUMNS = [
   { key: "category", label: "Category" },
   { key: "location", label: "Location" },
   { key: "status", label: "Status" },
-  { key: "assigned_to", label: "Assigned To" },
   { key: "value", label: "Value" },
   { key: "created_at", label: "Date Added" },
 ];
@@ -37,7 +36,7 @@ interface Asset {
   created_by: string;
 }
 
-type SortField = "name" | "category" | "location" | "status" | "assigned_to" | "value" | "created_at";
+type SortField = "name" | "category" | "location" | "status" | "value" | "created_at";
 type SortDir = "asc" | "desc";
 
 const STATUS_OPTIONS = ["all", "available", "checked_out", "maintenance", "retired"] as const;
@@ -114,15 +113,8 @@ export default function MyAssetsPage() {
       );
     }
     result.sort((a, b) => {
-      let aVal: string | number = "";
-      let bVal: string | number = "";
-      if (sortField === "assigned_to") {
-        aVal = a.assigned_member ? `${a.assigned_member.first_name} ${a.assigned_member.last_name}` : "";
-        bVal = b.assigned_member ? `${b.assigned_member.first_name} ${b.assigned_member.last_name}` : "";
-      } else {
-        aVal = (a[sortField as keyof Asset] as string | number) ?? "";
-        bVal = (b[sortField as keyof Asset] as string | number) ?? "";
-      }
+      const aVal: string | number = (a[sortField as keyof Asset] as string | number) ?? "";
+      const bVal: string | number = (b[sortField as keyof Asset] as string | number) ?? "";
       if (typeof aVal === "number" && typeof bVal === "number") {
         return sortDir === "asc" ? aVal - bVal : bVal - aVal;
       }
@@ -328,7 +320,6 @@ export default function MyAssetsPage() {
                     ["category", "Category"],
                     ["location", "Location"],
                     ["status", "Status"],
-                    ["assigned_to", "Assigned To"],
                     ["value", "Value"],
                     ["created_at", "Date Added"],
                   ] as [SortField, string][]).filter(([field]) => visibleCols.has(field)).map(([field, label]) => (
@@ -382,13 +373,6 @@ export default function MyAssetsPage() {
                         >
                           {STATUS_LABELS[asset.status] ?? asset.status}
                         </span>
-                      </td>
-                    )}
-                    {visibleCols.has("assigned_to") && (
-                      <td className="pl-5 pr-2 py-3.5 text-sm text-foreground/55 whitespace-nowrap">
-                        {asset.assigned_member
-                          ? `${asset.assigned_member.first_name} ${asset.assigned_member.last_name}`
-                          : "—"}
                       </td>
                     )}
                     {visibleCols.has("value") && (

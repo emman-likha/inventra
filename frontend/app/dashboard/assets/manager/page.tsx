@@ -133,7 +133,6 @@ const fadeUp = {
 const WORK_SETUP_OPTIONS = [
   { value: "on_site", label: "On Site" },
   { value: "remote", label: "Remote" },
-  { value: "hybrid", label: "Hybrid" },
 ];
 
 const selectClass = "w-full bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:border-foreground/20 transition-colors appearance-none cursor-pointer";
@@ -279,6 +278,54 @@ function StyledDatePicker({
   );
 }
 
+/* ── Styled Time Picker ───────────────────────────────── */
+
+function StyledTimePicker({
+  value,
+  onChange,
+  placeholder = "Select time...",
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+}) {
+  const hiddenRef = useRef<HTMLInputElement>(null);
+
+  const displayValue = useMemo(() => {
+    if (!value) return "";
+    const [h, m] = value.split(":").map(Number);
+    const period = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 || 12;
+    return `${h12}:${String(m).padStart(2, "0")} ${period}`;
+  }, [value]);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => hiddenRef.current?.showPicker()}
+        className={`${selectClass} text-left flex items-center justify-between`}
+      >
+        <span className={value ? "text-foreground" : "text-foreground/30"}>
+          {displayValue || placeholder}
+        </span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/30 shrink-0 ml-2">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+      </button>
+      <input
+        ref={hiddenRef}
+        type="time"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 opacity-0 pointer-events-none"
+        tabIndex={-1}
+      />
+    </div>
+  );
+}
+
 /* ── Inline Action Form ───────────────────────────────── */
 
 function ActionForm({
@@ -302,7 +349,15 @@ function ActionForm({
   const [memberId, setMemberId] = useState("");
   const [toLocation, setToLocation] = useState("");
   const [workSetup, setWorkSetup] = useState("");
-  const [actionDate, setActionDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [timing, setTiming] = useState<"now" | "scheduled">("now");
+  const [actionDate, setActionDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  });
+  const [actionTime, setActionTime] = useState(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  });
   const [notes, setNotes] = useState("");
   const [success, setSuccess] = useState(false);
 
@@ -357,23 +412,37 @@ function ActionForm({
     setMemberId("");
     setToLocation("");
     setWorkSetup("");
-    setActionDate(new Date().toISOString().slice(0, 10));
+    setTiming("now");
+    const now = new Date();
+    setActionDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`);
+    setActionTime(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`);
     setNotes("");
     setSuccess(false);
   }
 
   const mutation = useMutation({
-    mutationFn: () =>
-      createAssetAction({
+    mutationFn: () => {
+      let dateTime: string;
+      if (timing === "now") {
+        dateTime = new Date().toISOString();
+      } else {
+        dateTime = actionDate && actionTime
+          ? `${actionDate}T${actionTime}:00`
+          : actionDate
+            ? `${actionDate}T00:00:00`
+            : new Date().toISOString();
+      }
+      return createAssetAction({
         asset_id: assetId,
         action,
         member_id: memberId || undefined,
         department_id: departmentId || undefined,
         to_location: toLocation || undefined,
         work_setup: workSetup || undefined,
-        action_date: actionDate || undefined,
+        action_date: dateTime,
         notes: notes || undefined,
-      }),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["asset-actions"] });
       queryClient.invalidateQueries({ queryKey: ["assets"] });
@@ -385,7 +454,8 @@ function ActionForm({
   });
 
   const canSubmit = useMemo(() => {
-    if (!assetId || !actionDate || mutation.isPending) return false;
+    if (!assetId || mutation.isPending) return false;
+    if (timing === "scheduled" && !actionDate) return false;
     switch (action) {
       case "check_out":
         return !!departmentId && !!memberId && !!toLocation.trim() && !!workSetup;
@@ -402,7 +472,7 @@ function ActionForm({
       default:
         return true;
     }
-  }, [assetId, action, departmentId, memberId, toLocation, workSetup, actionDate, notes, mutation.isPending]);
+  }, [assetId, action, departmentId, memberId, toLocation, workSetup, timing, actionDate, mutation.isPending]);
 
   return (
     <motion.div
@@ -516,12 +586,6 @@ function ActionForm({
                     options={WORK_SETUP_OPTIONS}
                   />
                 </div>
-                <div>
-                  <label className={labelClass}>
-                    Checkout Date <span className="text-red-500">*</span>
-                  </label>
-                  <StyledDatePicker value={actionDate} onChange={setActionDate} />
-                </div>
               </>
             )}
 
@@ -549,56 +613,22 @@ function ActionForm({
                     options={inventoryLocations}
                   />
                 </div>
-                <div>
-                  <label className={labelClass}>
-                    Check-in Date <span className="text-red-500">*</span>
-                  </label>
-                  <StyledDatePicker value={actionDate} onChange={setActionDate} />
-                </div>
               </>
             )}
 
             {/* ── Move fields ── */}
             {action === "move" && (
-              <>
-                <div>
-                  <label className={labelClass}>
-                    Destination Location <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={toLocation}
-                    onChange={(e) => setToLocation(e.target.value)}
-                    placeholder="Enter new location..."
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>
-                    Move Date <span className="text-red-500">*</span>
-                  </label>
-                  <StyledDatePicker value={actionDate} onChange={setActionDate} />
-                </div>
-              </>
-            )}
-
-            {/* ── Maintenance fields ── */}
-            {action === "maintenance" && (
-              <div>
+              <div className="sm:col-span-2">
                 <label className={labelClass}>
-                  Scheduled Date <span className="text-red-500">*</span>
+                  Destination Location <span className="text-red-500">*</span>
                 </label>
-                <StyledDatePicker value={actionDate} onChange={setActionDate} />
-              </div>
-            )}
-
-            {/* ── Dispose fields ── */}
-            {action === "dispose" && (
-              <div>
-                <label className={labelClass}>
-                  Disposal Date <span className="text-red-500">*</span>
-                </label>
-                <StyledDatePicker value={actionDate} onChange={setActionDate} />
+                <input
+                  type="text"
+                  value={toLocation}
+                  onChange={(e) => setToLocation(e.target.value)}
+                  placeholder="Enter new location..."
+                  className={inputClass}
+                />
               </div>
             )}
 
@@ -630,11 +660,52 @@ function ActionForm({
                     }))}
                   />
                 </div>
+              </>
+            )}
+
+            {/* ── Timing toggle — shared across all actions ── */}
+            <div className="sm:col-span-2">
+              <label className={labelClass}>When <span className="text-red-500">*</span></label>
+              <div className="inline-flex rounded-xl border border-foreground/[0.08] overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setTiming("now")}
+                  className={`px-4 py-2 text-sm font-medium transition-colors cursor-pointer ${
+                    timing === "now"
+                      ? "bg-foreground text-background"
+                      : "bg-foreground/[0.03] text-foreground/50 hover:text-foreground/70"
+                  }`}
+                >
+                  Now
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTiming("scheduled")}
+                  className={`px-4 py-2 text-sm font-medium transition-colors cursor-pointer border-l border-foreground/[0.08] ${
+                    timing === "scheduled"
+                      ? "bg-foreground text-background"
+                      : "bg-foreground/[0.03] text-foreground/50 hover:text-foreground/70"
+                  }`}
+                >
+                  Scheduled
+                </button>
+              </div>
+            </div>
+
+            {/* ── Date & Time pickers — only when scheduled ── */}
+            {timing === "scheduled" && (
+              <>
                 <div>
                   <label className={labelClass}>
-                    Reserve Date <span className="text-red-500">*</span>
+                    Date <span className="text-red-500">*</span>
                   </label>
                   <StyledDatePicker value={actionDate} onChange={setActionDate} />
+                </div>
+                <div>
+                  <label className={labelClass}>
+                    Time <span className="text-red-500">*</span>
+                  </label>
+                  <StyledTimePicker value={actionTime} onChange={setActionTime} />
                 </div>
               </>
             )}
