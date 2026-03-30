@@ -124,18 +124,24 @@ router.post("/", requireAuth, async (req, res) => {
       break;
   }
 
-  // Insert the action record
-  const { error: insertError } = await supabase
-    .from("asset_actions")
-    .insert(actionRecord);
+  // Determine if this is a future-scheduled action
+  const isFuture = !!action_date && new Date(action_date) > new Date();
+
+  // Insert the action record — include applied flag if the column exists
+  let insertError;
+  const recordWithApplied = { ...actionRecord, applied: !isFuture };
+  const result1 = await supabase.from("asset_actions").insert(recordWithApplied);
+  if (result1.error && result1.error.message.includes("applied")) {
+    // Column doesn't exist yet — insert without it
+    const result2 = await supabase.from("asset_actions").insert(actionRecord);
+    insertError = result2.error;
+  } else {
+    insertError = result1.error;
+  }
 
   if (insertError) {
     return res.status(500).json({ error: insertError.message });
   }
-
-  // Only apply asset updates if the action_date is now or in the past.
-  // Future-dated actions are scheduled — the asset state stays unchanged until then.
-  const isFuture = !!action_date && new Date(action_date) > new Date();
 
   if (!isFuture && Object.keys(assetUpdates).length > 0) {
     const { error: updateError } = await supabase
@@ -149,6 +155,45 @@ router.post("/", requireAuth, async (req, res) => {
   }
 
   res.status(201).json({ success: true, scheduled: isFuture });
+});
+
+// DELETE /api/asset-actions/:id — cancel a pending (not yet applied) action
+router.delete("/:id", requireAuth, async (req, res) => {
+  const { id } = req.params;
+
+  // Fetch the action — select all fields to handle both migrated and non-migrated DBs
+  const { data: action, error: fetchError } = await supabase
+    .from("asset_actions")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (fetchError || !action) {
+    return res.status(404).json({ error: "Action not found." });
+  }
+
+  // Allow cancellation if the action hasn't been applied yet OR is still in the future
+  const isFutureAction = action.action_date && new Date(action.action_date) > new Date();
+  const isPending = action.applied === false || isFutureAction;
+
+  if (!isPending) {
+    return res.status(400).json({ error: "Cannot cancel an action that has already been applied." });
+  }
+
+  // If the action was already applied to the asset (applied=true but still future due to migration timing),
+  // we need to revert the asset state. For simplicity, we skip revert here — the cron or next action will correct it.
+  // Future actions with applied=true shouldn't have changed the asset anyway.
+
+  const { error: deleteError } = await supabase
+    .from("asset_actions")
+    .delete()
+    .eq("id", id);
+
+  if (deleteError) {
+    return res.status(500).json({ error: deleteError.message });
+  }
+
+  res.json({ success: true });
 });
 
 module.exports = router;

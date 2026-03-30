@@ -7,6 +7,7 @@ import {
   fetchAssets,
   fetchAllMembers,
   fetchDepartments,
+  fetchAssetActions,
   createAssetAction,
 } from "@/lib/api";
 
@@ -117,17 +118,6 @@ const ACTION_CONFIG: Record<ActionType, {
       </svg>
     ),
   },
-};
-
-/* ── Animations ────────────────────────────────────────── */
-
-const stagger = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-const fadeUp = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
 const WORK_SETUP_OPTIONS = [
@@ -346,6 +336,21 @@ function ActionForm({
   const queryClient = useQueryClient();
   const config = ACTION_CONFIG[action];
 
+  // Fetch pending actions to exclude assets with scheduled actions
+  const { data: allActions = [] } = useQuery<{ asset_id: string; action: string; action_date: string | null }[]>({
+    queryKey: ["asset-actions"],
+    queryFn: fetchAssetActions,
+  });
+
+  const pendingAssetIds = useMemo(() => {
+    const now = new Date();
+    return new Set(
+      allActions
+        .filter((a) => a.action_date && new Date(a.action_date) > now)
+        .map((a) => a.asset_id)
+    );
+  }, [allActions]);
+
   const [assetId, setAssetId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [memberId, setMemberId] = useState("");
@@ -366,9 +371,10 @@ function ActionForm({
   const availableAssets = useMemo(() => {
     switch (action) {
       case "check_out":
-        return assets.filter((a) => a.status === "available");
+        // Exclude assets that already have a pending scheduled action
+        return assets.filter((a) => a.status === "available" && !pendingAssetIds.has(a.id));
       case "check_in":
-        return assets.filter((a) => a.status === "checked_out");
+        return assets.filter((a) => a.status === "checked_out" || a.assigned_to);
       case "move":
         return assets.filter((a) => a.status !== "retired");
       case "maintenance":
@@ -376,11 +382,11 @@ function ActionForm({
       case "dispose":
         return assets.filter((a) => a.status !== "retired");
       case "reserve":
-        return assets.filter((a) => a.status === "available");
+        return assets.filter((a) => a.status === "available" && !pendingAssetIds.has(a.id));
       default:
         return assets;
     }
-  }, [assets, action]);
+  }, [assets, action, pendingAssetIds]);
 
   const filteredMembers = useMemo(() => {
     if (!departmentId) return members;
@@ -802,17 +808,17 @@ export default function AssetManagerPage() {
   }
 
   return (
-    <motion.div variants={stagger} initial="hidden" animate="visible">
+    <div>
       {/* Header */}
-      <motion.div variants={fadeUp} className="mb-8">
+      <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Asset Manager</h1>
         <p className="text-foreground/50 mt-1 text-sm">
           Manage asset lifecycle — check out, check in, move, maintain, dispose, or reserve assets.
         </p>
-      </motion.div>
+      </div>
 
       {/* Action Buttons */}
-      <motion.div variants={fadeUp} className="grid grid-cols-6 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mb-6">
+      <div className="grid grid-cols-6 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mb-6">
         {(Object.keys(ACTION_CONFIG) as ActionType[]).map((action) => {
           const cfg = ACTION_CONFIG[action];
           const isActive = activeAction === action;
@@ -846,7 +852,7 @@ export default function AssetManagerPage() {
             </button>
           );
         })}
-      </motion.div>
+      </div>
 
       {/* Inline Action Form */}
       <AnimatePresence mode="wait">
@@ -861,6 +867,6 @@ export default function AssetManagerPage() {
           />
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }

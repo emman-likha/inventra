@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
-import { fetchAssetActions, AssetAction } from "@/lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchAssetActions, cancelAssetAction, AssetAction } from "@/lib/api";
+import { SkeletonPage } from "@/components/ui/Skeleton";
 
 const ACTION_LABELS: Record<string, string> = {
   check_out: "Check Out",
@@ -20,21 +20,22 @@ const WORK_SETUP_LABELS: Record<string, string> = {
   hybrid: "Hybrid",
 };
 
-const stagger = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-const fadeUp = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-};
 
 export default function MovementHistoryPage() {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
 
   const { data: actions = [], isLoading } = useQuery<AssetAction[]>({
     queryKey: ["asset-actions"],
     queryFn: fetchAssetActions,
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (id: string) => cancelAssetAction(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["asset-actions"] });
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
+    },
   });
 
   function isPending(act: AssetAction) {
@@ -62,17 +63,17 @@ export default function MovementHistoryPage() {
   }, [actions, search]);
 
   return (
-    <motion.div variants={stagger} initial="hidden" animate="visible">
+    <div>
       {/* Header */}
-      <motion.div variants={fadeUp} className="mb-8">
+      <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Movement History</h1>
         <p className="text-foreground/50 mt-1 text-sm">
           Complete log of all asset actions and movements.
         </p>
-      </motion.div>
+      </div>
 
       {/* Search + count */}
-      <motion.div variants={fadeUp} className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4">
         <p className="text-xs text-foreground/40">
           {filteredActions.length} {filteredActions.length === 1 ? "record" : "records"}
         </p>
@@ -93,14 +94,12 @@ export default function MovementHistoryPage() {
             className="w-full bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-foreground/20 transition-colors"
           />
         </div>
-      </motion.div>
+      </div>
 
       {/* Table */}
-      <motion.div variants={fadeUp}>
+      <div>
         {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <p className="text-sm text-foreground/40">Loading history...</p>
-          </div>
+          <SkeletonPage header={false} search={false} cols={10} />
         ) : filteredActions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 border border-foreground/[0.08] rounded-2xl">
             <div className="w-14 h-14 rounded-2xl bg-foreground/[0.03] border border-foreground/[0.08] flex items-center justify-center mb-4">
@@ -116,10 +115,10 @@ export default function MovementHistoryPage() {
             <table className="w-full">
               <thead className="sticky top-0 z-10 bg-background">
                 <tr className="border-b border-foreground/[0.08]">
-                  {["Asset", "Action", "Status", "Department", "Member", "From", "To", "Work Setup", "Notes", "Date"].map((h) => (
+                  {["Asset", "Action", "Status", "Department", "Member", "From", "To", "Work Setup", "Notes", "Date", ""].map((h) => (
                     <th
-                      key={h}
-                      className="text-left pl-5 pr-2 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider whitespace-nowrap select-none"
+                      key={h || "_action"}
+                      className={`text-left pl-5 pr-2 py-3.5 text-xs font-semibold text-foreground/50 uppercase tracking-wider whitespace-nowrap select-none ${h === "" ? "w-[80px]" : ""}`}
                     >
                       {h}
                     </th>
@@ -191,13 +190,24 @@ export default function MovementHistoryPage() {
                         );
                       })()}
                     </td>
+                    <td className="pl-5 pr-2 py-3.5 whitespace-nowrap">
+                      {isPending(act) && (
+                        <button
+                          onClick={() => cancelMutation.mutate(act.id)}
+                          disabled={cancelMutation.isPending}
+                          className="text-xs font-medium px-2.5 py-1 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }

@@ -77,6 +77,15 @@ export async function fetchAssetActions() {
   return handleResponse(res);
 }
 
+export async function cancelAssetAction(id: string) {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/asset-actions/${id}`, {
+    method: "DELETE",
+    headers,
+  });
+  return handleResponse(res);
+}
+
 export async function createAssetAction(data: {
   asset_id: string;
   action: string;

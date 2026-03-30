@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchAssets, deleteAssets } from "@/lib/api";
 import { AddAssetModal } from "@/components/dashboard/AddAssetModal";
@@ -11,6 +10,7 @@ import { Dropdown } from "@/components/ui/Dropdown";
 import { ActionMenu } from "@/components/ui/ActionMenu";
 import { ColumnToggle } from "@/components/ui/ColumnToggle";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
+import { SkeletonPage } from "@/components/ui/Skeleton";
 
 const ASSET_COLUMNS = [
   { key: "name", label: "Name", locked: true },
@@ -52,15 +52,6 @@ const STATUS_STYLES: Record<string, string> = {
   checked_out: "bg-blue-500/10 text-blue-600",
   maintenance: "bg-amber-500/10 text-amber-600",
   retired: "bg-foreground/[0.06] text-foreground/50",
-};
-
-const stagger = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-const fadeUp = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 };
 
 export default function MyAssetsPage() {
@@ -170,19 +161,19 @@ export default function MyAssetsPage() {
   }
 
   return (
-    <motion.div variants={stagger} initial="hidden" animate="visible">
+    <div>
       {/* Header */}
-      <motion.div variants={fadeUp} className="mb-8">
+      <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
           My Assets
         </h1>
         <p className="text-foreground/50 mt-1 text-sm">
           Browse and manage all registered assets.
         </p>
-      </motion.div>
+      </div>
 
       {/* Controls: Search + Filters */}
-      <motion.div variants={fadeUp} className="flex flex-col sm:flex-row items-end gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row items-end gap-3 mb-6">
         <div className="relative flex-1 w-full">
           <label className="block text-xs font-medium text-foreground/40 mb-1.5 ml-1 select-none">Search Assets</label>
           <div className="relative">
@@ -225,10 +216,10 @@ export default function MyAssetsPage() {
           <label className="block text-xs font-medium text-foreground/40 mb-1.5 ml-1 select-none">&nbsp;</label>
           <ColumnToggle columns={ASSET_COLUMNS} visible={visibleCols} onChange={setVisibleCols} />
         </div>
-      </motion.div>
+      </div>
 
       {/* Results count + Delete Selected */}
-      <motion.div variants={fadeUp} className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4">
         <p className="text-xs text-foreground/40">
           {filtered.length} {filtered.length === 1 ? "asset" : "assets"} found
           {selectedIds.size > 0 && (
@@ -250,14 +241,12 @@ export default function MyAssetsPage() {
             Delete Selected ({selectedIds.size})
           </button>
         )}
-      </motion.div>
+      </div>
 
       {/* Table */}
-      <motion.div variants={fadeUp}>
+      <div>
         {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <p className="text-sm text-foreground/40">Loading assets...</p>
-          </div>
+          <SkeletonPage header={false} search={false} cols={6} />
         ) : isError ? (
           <div className="flex items-center justify-center py-20">
             <p className="text-sm text-red-500/70">Failed to load assets. Please try again.</p>
@@ -412,11 +401,11 @@ export default function MyAssetsPage() {
             </table>
           </div>
         )}
-      </motion.div>
+      </div>
 
       {/* Action buttons below table */}
       {!isLoading && !isError && assets.length > 0 && (
-        <motion.div variants={fadeUp} className="flex gap-3 mt-4">
+        <div className="flex gap-3 mt-4">
           <button
             onClick={() => setAddModalOpen(true)}
             className="flex items-center gap-2 bg-foreground text-background px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
@@ -438,12 +427,12 @@ export default function MyAssetsPage() {
             </svg>
             Import Assets
           </button>
-        </motion.div>
+        </div>
       )}
 
       <AddAssetModal open={addModalOpen} onClose={() => setAddModalOpen(false)} />
       <ImportAssetModal open={importModalOpen} onClose={() => setImportModalOpen(false)} />
       <EditAssetModal open={!!editAsset} onClose={() => setEditAsset(null)} asset={editAsset} />
-    </motion.div>
+    </div>
   );
 }

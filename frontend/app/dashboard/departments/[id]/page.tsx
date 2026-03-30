@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
+import { SkeletonPage } from "@/components/ui/Skeleton";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { fetchDepartment, fetchMembers, deleteMembers, type Member } from "@/lib/api";
@@ -128,11 +128,7 @@ export default function DepartmentDetailPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <p className="text-sm text-foreground/40">Loading department...</p>
-      </div>
-    );
+    return <SkeletonPage statCards={3} cols={6} />;
   }
 
   if (isError || !department) {
@@ -150,16 +146,9 @@ export default function DepartmentDetailPage() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.4 }}
-    >
+    <div>
       {/* Back button + header */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+      <div
         className="mb-8"
       >
         <button
@@ -180,13 +169,10 @@ export default function DepartmentDetailPage() {
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
           {department.name}
         </h1>
-      </motion.div>
+      </div>
 
       {/* Stats row */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.06 }}
+      <div
         className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8"
       >
         <div className="bg-foreground/[0.03] border border-foreground/[0.08] rounded-2xl p-5">
@@ -221,14 +207,10 @@ export default function DepartmentDetailPage() {
             })}
           </p>
         </div>
-      </motion.div>
+      </div>
 
       {/* Members section */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.12 }}
-      >
+      <div>
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-bold text-foreground tracking-tight">Members</h2>
@@ -455,11 +437,11 @@ export default function DepartmentDetailPage() {
             </div>
           </>
         )}
-      </motion.div>
+      </div>
 
       <AddMemberModal open={addMemberOpen} onClose={() => setAddMemberOpen(false)} departmentId={id} />
       <ImportMemberModal open={importMemberOpen} onClose={() => setImportMemberOpen(false)} departmentId={id} />
       <EditMemberModal open={!!editMember} onClose={() => setEditMember(null)} member={editMember} departmentId={id} />
-    </motion.div>
+    </div>
   );
 }

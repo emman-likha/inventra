@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAssets, fetchDepartments } from "@/lib/api";
+import { SkeletonPage } from "@/components/ui/Skeleton";
 
 interface Asset {
   id: string;
@@ -22,19 +22,6 @@ interface Department {
   name: string;
   member_count: number;
 }
-
-const stagger = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06 },
-  },
-};
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-};
 
 const STATUS_LABELS: Record<string, string> = {
   available: "Available",
@@ -73,19 +60,19 @@ export default function DashboardPage() {
   const isLoading = assetsLoading || deptsLoading;
 
   return (
-    <motion.div variants={stagger} initial="hidden" animate="visible">
+    <div>
       {/* Header */}
-      <motion.div variants={fadeUp} className="mb-10">
+      <div className="mb-10">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
           Overview
         </h1>
         <p className="text-foreground/50 mt-1 text-sm">
           Your asset management at a glance.
         </p>
-      </motion.div>
+      </div>
 
       {/* Stat cards */}
-      <motion.div variants={fadeUp} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         {[
           { label: "Total Assets", value: isLoading ? "—" : String(stats.total), sub: `${departments.length} departments` },
           { label: "Checked Out", value: isLoading ? "—" : String(stats.checkedOut), sub: stats.total > 0 ? `${Math.round((stats.checkedOut / stats.total) * 100)}% of total` : "0% of total" },
@@ -105,18 +92,16 @@ export default function DashboardPage() {
             <p className="text-foreground/40 text-xs mt-1">{stat.sub}</p>
           </div>
         ))}
-      </motion.div>
+      </div>
 
       {/* Recent assets table */}
-      <motion.div variants={fadeUp}>
+      <div>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-foreground tracking-tight">Recent Assets</h2>
         </div>
 
         {assetsLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <p className="text-sm text-foreground/40">Loading assets...</p>
-          </div>
+          <SkeletonPage header={false} search={false} cols={4} />
         ) : recentAssets.length === 0 ? (
           <div className="flex items-center justify-center py-16">
             <p className="text-sm text-foreground/40">No assets yet.</p>
@@ -152,7 +137,7 @@ export default function DashboardPage() {
             </table>
           </div>
         )}
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }

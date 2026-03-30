@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { fetchDepartments, deleteDepartments } from "@/lib/api";
@@ -11,6 +10,7 @@ import { EditDepartmentModal } from "@/components/dashboard/EditDepartmentModal"
 import { ActionMenu } from "@/components/ui/ActionMenu";
 import { ColumnToggle } from "@/components/ui/ColumnToggle";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
+import { SkeletonPage } from "@/components/ui/Skeleton";
 
 const DEPT_COLUMNS = [
   { key: "name", label: "Name", locked: true },
@@ -28,15 +28,6 @@ interface Department {
 
 type SortField = "name" | "members" | "created_at";
 type SortDir = "asc" | "desc";
-
-const stagger = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-const fadeUp = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-};
 
 export default function DepartmentsPage() {
   const router = useRouter();
@@ -119,19 +110,19 @@ export default function DepartmentsPage() {
   }
 
   return (
-    <motion.div variants={stagger} initial="hidden" animate="visible">
+    <div>
       {/* Header */}
-      <motion.div variants={fadeUp} className="mb-8">
+      <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
           Departments
         </h1>
         <p className="text-foreground/50 mt-1 text-sm">
           View departments and their members.
         </p>
-      </motion.div>
+      </div>
 
       {/* Controls */}
-      <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
           <svg
             className="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/30"
@@ -150,10 +141,10 @@ export default function DepartmentsPage() {
           />
         </div>
         <ColumnToggle columns={DEPT_COLUMNS} visible={visibleCols} onChange={setVisibleCols} />
-      </motion.div>
+      </div>
 
       {/* Results count + Delete Selected */}
-      <motion.div variants={fadeUp} className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4">
         <p className="text-xs text-foreground/40">
           {filtered.length} {filtered.length === 1 ? "department" : "departments"}
           {selectedIds.size > 0 && (
@@ -175,14 +166,12 @@ export default function DepartmentsPage() {
             Delete Selected ({selectedIds.size})
           </button>
         )}
-      </motion.div>
+      </div>
 
       {/* Table */}
-      <motion.div variants={fadeUp}>
+      <div>
         {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <p className="text-sm text-foreground/40">Loading departments...</p>
-          </div>
+          <SkeletonPage header={false} search={false} cols={3} />
         ) : isError ? (
           <div className="flex items-center justify-center py-20">
             <p className="text-sm text-red-500/70">Failed to load departments.</p>
@@ -321,11 +310,11 @@ export default function DepartmentsPage() {
             </table>
           </div>
         )}
-      </motion.div>
+      </div>
 
       {/* Action buttons below table */}
       {!isLoading && !isError && departments.length > 0 && (
-        <motion.div variants={fadeUp} className="flex gap-3 mt-4">
+        <div className="flex gap-3 mt-4">
           <button
             onClick={() => setAddModalOpen(true)}
             className="flex items-center gap-2 bg-foreground text-background px-5 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer"
@@ -347,12 +336,12 @@ export default function DepartmentsPage() {
             </svg>
             Import Departments
           </button>
-        </motion.div>
+        </div>
       )}
 
       <AddDepartmentModal open={addModalOpen} onClose={() => setAddModalOpen(false)} />
       <ImportDepartmentModal open={importModalOpen} onClose={() => setImportModalOpen(false)} />
       <EditDepartmentModal open={!!editDept} onClose={() => setEditDept(null)} department={editDept} />
-    </motion.div>
+    </div>
   );
 }
