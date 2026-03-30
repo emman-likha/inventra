@@ -146,11 +146,13 @@ function SearchableSelect({
   onChange,
   options,
   placeholder = "Choose...",
+  disabled = false,
 }: {
   value: string;
   onChange: (val: string) => void;
   options: { value: string; label: string }[];
   placeholder?: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -184,8 +186,8 @@ function SearchableSelect({
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((p) => !p)}
-        className={`${selectClass} text-left flex items-center justify-between`}
+        onClick={() => { if (!disabled) setOpen((p) => !p); }}
+        className={`${selectClass} text-left flex items-center justify-between ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
       >
         <span className={value ? "text-foreground" : "text-foreground/30"}>
           {selectedLabel || placeholder}
@@ -426,11 +428,13 @@ function ActionForm({
       if (timing === "now") {
         dateTime = new Date().toISOString();
       } else {
-        dateTime = actionDate && actionTime
-          ? `${actionDate}T${actionTime}:00`
+        // Build a Date from local date+time so the timezone offset is correct
+        const localDate = actionDate && actionTime
+          ? new Date(`${actionDate}T${actionTime}:00`)
           : actionDate
-            ? `${actionDate}T00:00:00`
-            : new Date().toISOString();
+            ? new Date(`${actionDate}T00:00:00`)
+            : new Date();
+        dateTime = localDate.toISOString();
       }
       return createAssetAction({
         asset_id: assetId,
@@ -556,7 +560,8 @@ function ActionForm({
                   <SearchableSelect
                     value={memberId}
                     onChange={handleMemberChange}
-                    placeholder="Choose a member..."
+                    placeholder={departmentId ? "Choose a member..." : "Select a department first"}
+                    disabled={!departmentId}
                     options={filteredMembers.map((m) => ({
                       value: m.id,
                       label: `${m.first_name} ${m.last_name}`,
@@ -565,26 +570,41 @@ function ActionForm({
                 </div>
                 <div>
                   <label className={labelClass}>
-                    Location <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={toLocation}
-                    onChange={(e) => setToLocation(e.target.value)}
-                    placeholder={selectedMember?.site_location ? "Auto-filled from member" : "Enter location..."}
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>
                     Work Setup <span className="text-red-500">*</span>
                   </label>
                   <SearchableSelect
                     value={workSetup}
-                    onChange={setWorkSetup}
+                    onChange={(val) => {
+                      setWorkSetup(val);
+                      if (val === "remote") {
+                        setToLocation("Home");
+                      } else {
+                        setToLocation(selectedMember?.site_location || "");
+                      }
+                    }}
                     placeholder="Select work setup..."
                     options={WORK_SETUP_OPTIONS}
                   />
+                </div>
+                <div>
+                  <label className={labelClass}>
+                    Location <span className="text-red-500">*</span>
+                  </label>
+                  {!workSetup ? (
+                    <div className={`${inputClass} opacity-40 cursor-not-allowed`}>
+                      <span className="text-foreground/30">Select work setup first</span>
+                    </div>
+                  ) : workSetup === "remote" ? (
+                    <div className={`${inputClass} opacity-60 cursor-default`}>Home</div>
+                  ) : (
+                    <input
+                      type="text"
+                      value={toLocation}
+                      onChange={(e) => setToLocation(e.target.value)}
+                      placeholder={selectedMember?.site_location ? "Auto-filled from member" : "Enter location..."}
+                      className={inputClass}
+                    />
+                  )}
                 </div>
               </>
             )}
@@ -653,7 +673,8 @@ function ActionForm({
                   <SearchableSelect
                     value={memberId}
                     onChange={setMemberId}
-                    placeholder="Choose a member..."
+                    placeholder={departmentId ? "Choose a member..." : "Select a department first"}
+                    disabled={!departmentId}
                     options={filteredMembers.map((m) => ({
                       value: m.id,
                       label: `${m.first_name} ${m.last_name}`,

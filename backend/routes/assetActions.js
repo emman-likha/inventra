@@ -135,10 +135,7 @@ router.post("/", requireAuth, async (req, res) => {
 
   // Only apply asset updates if the action_date is now or in the past.
   // Future-dated actions are scheduled — the asset state stays unchanged until then.
-  // Compare full local datetime to handle same-day scheduling with time.
-  const now = new Date();
-  const nowStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:00`;
-  const isFuture = !!action_date && action_date > nowStr;
+  const isFuture = !!action_date && new Date(action_date) > new Date();
 
   if (!isFuture && Object.keys(assetUpdates).length > 0) {
     const { error: updateError } = await supabase
