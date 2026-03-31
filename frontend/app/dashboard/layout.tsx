@@ -12,11 +12,26 @@ const sidebarItems: SidebarItem[] = [
     label: "My Assets", href: "/dashboard/assets", icon: "box", children: [
       { label: "Asset Manager", href: "/dashboard/assets/manager", icon: "activity" },
       { label: "Movement History", href: "/dashboard/assets/history", icon: "clock" },
+      { label: "Disposed", href: "/dashboard/assets/disposed", icon: "trash" },
     ]
   },
   { label: "Inventory", href: "/dashboard/inventory", icon: "clipboard" },
   { label: "Departments", href: "/dashboard/departments", icon: "users" },
-  { label: "Reports", href: "/dashboard/reports", icon: "chart" },
+  {
+    label: "Reports", href: "/dashboard/reports", icon: "chart", children: [
+      { label: "Status", href: "/dashboard/reports/status", icon: "activity" },
+      { label: "Assets", href: "/dashboard/reports/assets", icon: "box" },
+      { label: "Check-Out", href: "/dashboard/reports/checkout", icon: "log-out" },
+      { label: "Transactions", href: "/dashboard/reports/transactions", icon: "tag" },
+      { label: "Maintenance", href: "/dashboard/reports/maintenance", icon: "settings" },
+      { label: "Reservations", href: "/dashboard/reports/reservations", icon: "clock" },
+      { label: "Audit", href: "/dashboard/reports/audit", icon: "shield" },
+      { label: "Depreciation", href: "/dashboard/reports/depreciation", icon: "chart" },
+      { label: "Leased", href: "/dashboard/reports/leased", icon: "clipboard" },
+    ]
+  },
+  { label: "Documents", href: "/dashboard/gallery/documents", icon: "file" },
+  { label: "Images", href: "/dashboard/gallery/images", icon: "image" },
   { label: "Settings", href: "/dashboard/settings", icon: "settings" },
 ];
 

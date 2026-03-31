@@ -21,12 +21,22 @@ CREATE POLICY "Users can insert own profile." ON public.profiles
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
+  -- Create profile
   INSERT INTO public.profiles (id, first_name, last_name)
   VALUES (
     new.id,
     new.raw_user_meta_data->>'first_name',
     new.raw_user_meta_data->>'last_name'
   );
+
+  -- Create user folder in documents bucket (empty .keep placeholder)
+  INSERT INTO storage.objects (bucket_id, name, owner)
+  VALUES ('documents', new.id || '/.keep', new.id);
+
+  -- Create user folder in images bucket (empty .keep placeholder)
+  INSERT INTO storage.objects (bucket_id, name, owner)
+  VALUES ('images', new.id || '/.keep', new.id);
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

@@ -137,12 +137,16 @@ function SearchableSelect({
   options,
   placeholder = "Choose...",
   disabled = false,
+  onAddNew,
+  addNewLabel = "+ Add new",
 }: {
   value: string;
   onChange: (val: string) => void;
   options: { value: string; label: string }[];
   placeholder?: string;
   disabled?: boolean;
+  onAddNew?: () => void;
+  addNewLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -214,6 +218,17 @@ function SearchableSelect({
                   {o.label}
                 </button>
               ))
+            )}
+            {onAddNew && (
+              <div className="border-t border-foreground/[0.06]">
+                <button
+                  type="button"
+                  onClick={() => { onAddNew(); setOpen(false); }}
+                  className="w-full text-left px-3 py-2.5 text-sm text-foreground/50 hover:bg-foreground/[0.04] hover:text-foreground/70 transition-colors cursor-pointer italic"
+                >
+                  {addNewLabel}
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -402,6 +417,17 @@ function ActionForm({
     return Array.from(locs).sort().map((loc) => ({ value: loc, label: loc }));
   }, [assets]);
 
+  const allLocations = useMemo(() => {
+    const locs = new Set<string>();
+    assets.forEach((a) => {
+      if (a.location) locs.add(a.location);
+      if (a.inventory_location) locs.add(a.inventory_location);
+    });
+    return Array.from(locs).sort().map((loc) => ({ value: loc, label: loc }));
+  }, [assets]);
+
+  const [isCustomMoveLocation, setIsCustomMoveLocation] = useState(false);
+
   function handleAssetChange(id: string) {
     setAssetId(id);
   }
@@ -420,6 +446,7 @@ function ActionForm({
     setMemberId("");
     setToLocation("");
     setWorkSetup("");
+    setIsCustomMoveLocation(false);
     setTiming("now");
     const now = new Date();
     setActionDate(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`);
@@ -648,13 +675,40 @@ function ActionForm({
                 <label className={labelClass}>
                   Destination Location <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={toLocation}
-                  onChange={(e) => setToLocation(e.target.value)}
-                  placeholder="Enter new location..."
-                  className={inputClass}
-                />
+                {isCustomMoveLocation ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={toLocation}
+                      onChange={(e) => setToLocation(e.target.value)}
+                      placeholder="Enter new location..."
+                      className={inputClass}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomMoveLocation(false);
+                        setToLocation("");
+                      }}
+                      className="shrink-0 text-foreground/40 hover:text-foreground/70 text-xs px-3 border border-foreground/[0.08] rounded-xl transition-colors cursor-pointer"
+                    >
+                      Back
+                    </button>
+                  </div>
+                ) : (
+                  <SearchableSelect
+                    value={toLocation}
+                    onChange={setToLocation}
+                    placeholder="Choose destination..."
+                    options={allLocations}
+                    onAddNew={() => {
+                      setIsCustomMoveLocation(true);
+                      setToLocation("");
+                    }}
+                    addNewLabel="+ Add new location"
+                  />
+                )}
               </div>
             )}
 
