@@ -162,12 +162,13 @@ interface SidebarProps {
   items: SidebarItem[];
   role: "admin" | "user";
   userName: string;
+  companyName?: string;
   onSignOut: () => void;
 }
 
 /* ── Sidebar component ────────────────────────────────────────── */
 
-export function Sidebar({ items, role, userName, onSignOut }: SidebarProps) {
+export function Sidebar({ items, role, userName, companyName, onSignOut }: SidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(() => {
@@ -203,10 +204,8 @@ export function Sidebar({ items, role, userName, onSignOut }: SidebarProps) {
         <Link href="/" className="text-4xl font-bold tracking-tighter text-foreground">
           INVENTRA.
         </Link>
-        {role === "admin" && (
-          <span className="ml-2 text-[10px] font-bold uppercase tracking-widest bg-foreground text-background px-1.5 py-0.5 rounded align-middle">
-            Admin
-          </span>
+        {companyName && (
+          <p className="text-xs text-foreground/40 mt-1.5 truncate">{companyName}</p>
         )}
       </div>
 

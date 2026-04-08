@@ -11,6 +11,7 @@ router.get("/", requireAuth, async (req, res) => {
   let query = supabase
     .from("asset_actions")
     .select("*, asset:assets!asset_id(id, name), member:members!member_id(id, first_name, last_name), department:departments!department_id(id, name)")
+    .eq("company_id", req.companyId)
     .order("created_at", { ascending: false })
     .limit(200);
 
@@ -40,11 +41,12 @@ router.post("/", requireAuth, async (req, res) => {
     return res.status(400).json({ error: `Invalid action. Must be one of: ${validActions.join(", ")}` });
   }
 
-  // Get current asset state
+  // Get current asset state (scoped to company)
   const { data: asset, error: assetError } = await supabase
     .from("assets")
     .select("*")
     .eq("id", asset_id)
+    .eq("company_id", req.companyId)
     .single();
 
   if (assetError || !asset) {
@@ -63,6 +65,7 @@ router.post("/", requireAuth, async (req, res) => {
     action_date: action_date || null,
     notes: notes?.trim() || null,
     performed_by: req.user.id,
+    company_id: req.companyId,
   };
 
   // Build asset updates based on action type
@@ -80,6 +83,7 @@ router.post("/", requireAuth, async (req, res) => {
         .from("members")
         .select("site_location")
         .eq("id", member_id)
+        .eq("company_id", req.companyId)
         .single();
       if (memberOut?.site_location) {
         assetUpdates.location = memberOut.site_location;
@@ -166,6 +170,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
     .from("asset_actions")
     .select("*")
     .eq("id", id)
+    .eq("company_id", req.companyId)
     .single();
 
   if (fetchError || !action) {
@@ -187,7 +192,8 @@ router.delete("/:id", requireAuth, async (req, res) => {
   const { error: deleteError } = await supabase
     .from("asset_actions")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .eq("company_id", req.companyId);
 
   if (deleteError) {
     return res.status(500).json({ error: deleteError.message });

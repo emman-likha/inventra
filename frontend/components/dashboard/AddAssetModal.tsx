@@ -40,7 +40,6 @@ export function AddAssetModal({ open, onClose }: AddAssetModalProps) {
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [isOtherCategory, setIsOtherCategory] = useState(false);
   const [customCategory, setCustomCategory] = useState("");
-  const [workSetup, setWorkSetup] = useState<"on_site" | "remote">("on_site");
   const [location, setLocation] = useState("");
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationSearch, setLocationSearch] = useState("");
@@ -148,17 +147,6 @@ export function AddAssetModal({ open, onClose }: AddAssetModalProps) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  // When work setup changes, update location accordingly
-  useEffect(() => {
-    if (workSetup === "remote") {
-      setLocation("Home");
-      setLocationOpen(false);
-    } else {
-      // Reset location when switching to on_site so user picks from dropdown
-      setLocation("");
-    }
-  }, [workSetup]);
-
   const mutation = useMutation({
     mutationFn: async () => {
       const finalCategory = isOtherCategory ? customCategory.trim() : category;
@@ -192,7 +180,6 @@ export function AddAssetModal({ open, onClose }: AddAssetModalProps) {
     setCategoryOpen(false);
     setIsOtherCategory(false);
     setCustomCategory("");
-    setWorkSetup("on_site");
     setLocation("");
     setLocationOpen(false);
     setLocationSearch("");
@@ -411,56 +398,22 @@ export function AddAssetModal({ open, onClose }: AddAssetModalProps) {
                   )}
                 </div>
 
-                {/* Work Setup + Value */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass}>Work Setup</label>
-                    <div className="flex rounded-xl border border-foreground/[0.08] overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={() => setWorkSetup("on_site")}
-                        className={`flex-1 px-3 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
-                          workSetup === "on_site"
-                            ? "bg-foreground text-background"
-                            : "bg-foreground/[0.03] text-foreground/50 hover:text-foreground/70"
-                        }`}
-                      >
-                        On Site
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setWorkSetup("remote")}
-                        className={`flex-1 px-3 py-2.5 text-sm font-medium transition-colors cursor-pointer border-l border-foreground/[0.08] ${
-                          workSetup === "remote"
-                            ? "bg-foreground text-background"
-                            : "bg-foreground/[0.03] text-foreground/50 hover:text-foreground/70"
-                        }`}
-                      >
-                        Remote
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label className={labelClass}>Value (USD)</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 2499.99"
-                      value={value}
-                      onChange={(e) => setValue(e.target.value)}
-                      className={inputClass}
-                    />
-                  </div>
+                {/* Value */}
+                <div>
+                  <label className={labelClass}>Value (USD)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 2499.99"
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    className={inputClass}
+                  />
                 </div>
 
                 {/* Location */}
                 <div>
                   <label className={labelClass}>Location</label>
-                  {workSetup === "remote" ? (
-                    <div className={`${inputClass} opacity-60 cursor-default`}>
-                      Home
-                    </div>
-                  ) : (
-                    <div ref={locationRef} className="relative">
+                  <div ref={locationRef} className="relative">
                       <button
                         type="button"
                         onClick={() => {
@@ -539,7 +492,6 @@ export function AddAssetModal({ open, onClose }: AddAssetModalProps) {
                         </div>
                       )}
                     </div>
-                  )}
                 </div>
 
                 {/* Check Out toggle */}
@@ -683,8 +635,8 @@ export function AddAssetModal({ open, onClose }: AddAssetModalProps) {
                                     setMemberId(m.id);
                                     setMemberOpen(false);
                                     setMemberSearch("");
-                                    // Auto-fill location from member's site_location when on_site
-                                    if (workSetup === "on_site" && m.site_location) {
+                                    // Auto-fill location from member's site_location
+                                    if (m.site_location) {
                                       setLocation(m.site_location);
                                     }
                                   }}

@@ -9,6 +9,7 @@ router.get("/", requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from("inventories")
     .select("*")
+    .eq("company_id", req.companyId)
     .order("created_at", { ascending: false });
 
   if (error) return res.status(500).json({ error: error.message });
@@ -23,6 +24,7 @@ router.get("/:id", requireAuth, async (req, res) => {
     .from("inventories")
     .select("*")
     .eq("id", id)
+    .eq("company_id", req.companyId)
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
@@ -50,6 +52,7 @@ router.post("/", requireAuth, async (req, res) => {
       location: location?.trim() || null,
       description: description?.trim() || null,
       created_by: req.user.id,
+      company_id: req.companyId,
     })
     .select();
 
@@ -75,6 +78,7 @@ router.post("/import", requireAuth, async (req, res) => {
     location: inv.location?.trim() || null,
     description: inv.description?.trim() || null,
     created_by: req.user.id,
+    company_id: req.companyId,
   }));
 
   const invalid = rows.filter((r) => !r.name);
@@ -114,6 +118,7 @@ router.put("/:id", requireAuth, async (req, res) => {
     .from("inventories")
     .update(updates)
     .eq("id", id)
+    .eq("company_id", req.companyId)
     .select();
 
   if (error) return res.status(500).json({ error: error.message });
@@ -132,7 +137,8 @@ router.delete("/", requireAuth, async (req, res) => {
   const { error } = await supabase
     .from("inventories")
     .delete()
-    .in("id", ids);
+    .in("id", ids)
+    .eq("company_id", req.companyId);
 
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true, deleted: ids.length });

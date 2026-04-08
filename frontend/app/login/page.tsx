@@ -5,7 +5,6 @@ import { motion, AnimatePresence, Variants } from "framer-motion";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { fetchMyProfile } from "@/lib/api";
 import { KineticBackground } from "@/components/KineticBackground";
 import { FloatingDots } from "@/components/FloatingDots";
 import { LoadingScreen } from "@/components/LoadingScreen";
@@ -35,50 +34,6 @@ const inputClass =
   "w-full bg-foreground/[0.04] border border-foreground/[0.08] rounded-2xl px-5 py-3.5 text-foreground placeholder:text-foreground/25 focus:outline-none focus:border-foreground/20 focus:bg-foreground/[0.06] transition-all duration-200 text-sm";
 
 /* ── Sub-components ─────────────────────────────────────────────── */
-
-function Divider() {
-  return (
-    <div className="flex items-center gap-4 my-1">
-      <div className="flex-1 h-px bg-foreground/[0.08]" />
-      <span className="text-foreground/25 text-xs font-medium tracking-wide uppercase">
-        or
-      </span>
-      <div className="flex-1 h-px bg-foreground/[0.08]" />
-    </div>
-  );
-}
-
-function GoogleButton({ onClick }: { onClick?: () => void }) {
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      whileHover={{ scale: 1.005 }}
-      whileTap={{ scale: 0.985 }}
-      className="w-full bg-foreground/[0.04] border border-foreground/[0.08] py-3.5 rounded-full font-medium text-sm text-foreground hover:bg-foreground/[0.07] transition-all duration-200 flex items-center justify-center gap-3 cursor-pointer"
-    >
-      <svg width="18" height="18" viewBox="0 0 24 24">
-        <path
-          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
-          fill="#4285F4"
-        />
-        <path
-          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-          fill="#34A853"
-        />
-        <path
-          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-          fill="#FBBC05"
-        />
-        <path
-          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-          fill="#EA4335"
-        />
-      </svg>
-      Continue with Google
-    </motion.button>
-  );
-}
 
 function Field({
   children,
@@ -117,24 +72,8 @@ function SignInForm({ onAuthSuccess }: { onAuthSuccess: (path: string) => void }
     }
 
     if (data.user) {
-      try {
-        const profile = await fetchMyProfile();
-        if (profile?.role === "admin") {
-          onAuthSuccess("/admin/dashboard");
-        } else {
-          onAuthSuccess("/dashboard");
-        }
-      } catch {
-        onAuthSuccess("/dashboard");
-      }
+      onAuthSuccess("/dashboard");
     }
-  };
-
-  const handleGoogleSignIn = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
   };
 
   return (
@@ -192,27 +131,22 @@ function SignInForm({ onAuthSuccess }: { onAuthSuccess: (path: string) => void }
       </Field>
 
       <Field index={2}>
-        <div className="flex flex-col gap-3 mt-3">
-          <motion.button
-            type="submit"
-            disabled={loading}
-            whileHover={{ scale: 1.005 }}
-            whileTap={{ scale: 0.985 }}
-            className="w-full bg-foreground text-background py-3.5 rounded-full font-medium text-sm hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
-          >
-            {loading ? "Signing in..." : "Sign in"}
-          </motion.button>
-
-          <Divider />
-
-          <GoogleButton onClick={handleGoogleSignIn} />
-        </div>
+        <motion.button
+          type="submit"
+          disabled={loading}
+          whileHover={{ scale: 1.005 }}
+          whileTap={{ scale: 0.985 }}
+          className="w-full bg-foreground text-background py-3.5 rounded-full font-medium text-sm hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50 mt-3"
+        >
+          {loading ? "Signing in..." : "Sign in"}
+        </motion.button>
       </Field>
     </motion.form>
   );
 }
 
 function SignUpForm({ onAuthSuccess }: { onAuthSuccess: (path: string) => void }) {
+  const [companyName, setCompanyName] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -225,12 +159,37 @@ function SignUpForm({ onAuthSuccess }: { onAuthSuccess: (path: string) => void }
     e.preventDefault();
     setError("");
 
+    if (!companyName.trim()) {
+      setError("Company name is required.");
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
 
     setLoading(true);
+
+    // Check if company name already exists
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const checkRes = await fetch(`${API_BASE}/api/companies/check`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: companyName.trim() }),
+      });
+      const checkData = await checkRes.json();
+      if (checkData.exists) {
+        setError(
+          `A company named "${companyName.trim()}" already exists. Please contact your company administrator to get an account.`
+        );
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // If check fails, proceed with signup (the DB trigger will handle it)
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -239,6 +198,7 @@ function SignUpForm({ onAuthSuccess }: { onAuthSuccess: (path: string) => void }
         data: {
           first_name: firstName,
           last_name: lastName,
+          company_name: companyName.trim(),
         },
       },
     });
@@ -250,6 +210,7 @@ function SignUpForm({ onAuthSuccess }: { onAuthSuccess: (path: string) => void }
     }
 
     // Since email confirmation is disabled, user is automatically signed in or can be signed in immediately
+    // New signups always become admin of their company
     if (data.session) {
       onAuthSuccess("/dashboard");
     } else {
@@ -266,14 +227,6 @@ function SignUpForm({ onAuthSuccess }: { onAuthSuccess: (path: string) => void }
       }
     }
   };
-
-  const handleGoogleSignUp = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
-  };
-
 
   return (
     <motion.form
@@ -294,6 +247,20 @@ function SignUpForm({ onAuthSuccess }: { onAuthSuccess: (path: string) => void }
       )}
 
       <Field index={0}>
+        <label className="block text-foreground/40 text-xs font-medium mb-2 ml-1">
+          Company name
+        </label>
+        <input
+          type="text"
+          placeholder="Acme Corporation"
+          value={companyName}
+          onChange={(e) => setCompanyName(e.target.value)}
+          required
+          className={inputClass}
+        />
+      </Field>
+
+      <Field index={1}>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-foreground/40 text-xs font-medium mb-2 ml-1">
@@ -324,7 +291,7 @@ function SignUpForm({ onAuthSuccess }: { onAuthSuccess: (path: string) => void }
         </div>
       </Field>
 
-      <Field index={1}>
+      <Field index={2}>
         <label className="block text-foreground/40 text-xs font-medium mb-2 ml-1">
           Email address
         </label>
@@ -338,7 +305,7 @@ function SignUpForm({ onAuthSuccess }: { onAuthSuccess: (path: string) => void }
         />
       </Field>
 
-      <Field index={2}>
+      <Field index={3}>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-foreground/40 text-xs font-medium mb-2 ml-1">
@@ -371,22 +338,16 @@ function SignUpForm({ onAuthSuccess }: { onAuthSuccess: (path: string) => void }
         </div>
       </Field>
 
-      <Field index={3}>
-        <div className="flex flex-col gap-3 mt-3">
-          <motion.button
-            type="submit"
-            disabled={loading}
-            whileHover={{ scale: 1.005 }}
-            whileTap={{ scale: 0.985 }}
-            className="w-full bg-foreground text-background py-3.5 rounded-full font-medium text-sm hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
-          >
-            {loading ? "Creating account..." : "Create account"}
-          </motion.button>
-
-          <Divider />
-
-          <GoogleButton onClick={handleGoogleSignUp} />
-        </div>
+      <Field index={4}>
+        <motion.button
+          type="submit"
+          disabled={loading}
+          whileHover={{ scale: 1.005 }}
+          whileTap={{ scale: 0.985 }}
+          className="w-full bg-foreground text-background py-3.5 rounded-full font-medium text-sm hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50 mt-3"
+        >
+          {loading ? "Creating account..." : "Create account"}
+        </motion.button>
       </Field>
     </motion.form>
   );

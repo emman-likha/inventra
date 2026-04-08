@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { fetchMyProfile } from "@/lib/api";
 import { Sidebar, SidebarItem } from "@/components/dashboard/Sidebar";
 
-const sidebarItems: SidebarItem[] = [
+const baseSidebarItems: SidebarItem[] = [
   { label: "Overview", href: "/dashboard", icon: "home" },
   {
     label: "My Assets", href: "/dashboard/assets", icon: "box", children: [
@@ -35,9 +35,22 @@ const sidebarItems: SidebarItem[] = [
   { label: "Settings", href: "/dashboard/settings", icon: "settings" },
 ];
 
+function getSidebarItems(role: string): SidebarItem[] {
+  if (role === "admin") {
+    // Insert "Users" before "Settings"
+    const items = [...baseSidebarItems];
+    const settingsIdx = items.findIndex((i) => i.label === "Settings");
+    items.splice(settingsIdx, 0, { label: "Users", href: "/dashboard/users", icon: "users" });
+    return items;
+  }
+  return baseSidebarItems;
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [userName, setUserName] = useState("");
+  const [userRole, setUserRole] = useState("user");
+  const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
 
@@ -53,11 +66,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       try {
         const profile = await fetchMyProfile();
         if (cancelled) return;
-        if (profile.role === "admin") {
-          router.push("/admin/dashboard");
-          return;
-        }
         setUserName(profile.first_name || "User");
+        setUserRole(profile.role || "user");
+        setCompanyName(profile.company?.name || "");
       } catch (err) {
         if (cancelled) return;
         console.error("Failed to fetch profile:", err);
@@ -96,9 +107,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen bg-background flex">
       <Sidebar
-        items={sidebarItems}
-        role="user"
+        items={getSidebarItems(userRole)}
+        role={userRole as "admin" | "user"}
         userName={userName}
+        companyName={companyName}
         onSignOut={handleSignOut}
       />
 

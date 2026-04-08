@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import { fetchMyProfile } from "@/lib/api";
 import { SkeletonPage } from "@/components/ui/Skeleton";
 
 const BUCKET = "documents";
@@ -41,13 +42,9 @@ function formatSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-async function fetchFiles(): Promise<StorageFile[]> {
-  const { data, error } = await supabase.storage.from(BUCKET).list("", {
-    sortBy: { column: "created_at", order: "desc" },
-  });
-  if (error) throw new Error(error.message);
-  // Filter out the .emptyFolderPlaceholder
-  return (data ?? []).filter((f) => f.name !== ".emptyFolderPlaceholder");
+interface OrgProfile {
+  company_id: string;
+  id: string;
 }
 
 export default function DocumentsGalleryPage() {
@@ -57,9 +54,26 @@ export default function DocumentsGalleryPage() {
   const [search, setSearch] = useState("");
   const [uploading, setUploading] = useState(false);
 
+  const { data: profile } = useQuery<OrgProfile>({
+    queryKey: ["profile", "me"],
+    queryFn: fetchMyProfile,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const companyId = profile?.company_id;
+  const userId = profile?.id;
+
   const { data: files = [], isLoading } = useQuery<StorageFile[]>({
-    queryKey: ["gallery", BUCKET],
-    queryFn: fetchFiles,
+    queryKey: ["gallery", BUCKET, companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase.storage.from(BUCKET).list(companyId, {
+        sortBy: { column: "created_at", order: "desc" },
+      });
+      if (error) throw new Error(error.message);
+      return (data ?? []).filter((f) => f.name !== ".emptyFolderPlaceholder" && f.name !== ".keep" && f.id) as StorageFile[];
+    },
+    enabled: !!companyId,
   });
 
   const filtered = search.trim()
@@ -67,33 +81,43 @@ export default function DocumentsGalleryPage() {
     : files;
 
   const uploadFiles = useCallback(async (fileList: FileList | File[]) => {
+    if (!companyId || !userId) return;
     setUploading(true);
     const arr = Array.from(fileList);
     for (const file of arr) {
-      const name = `${Date.now()}_${file.name}`;
+      const name = `${companyId}/${Date.now()}_${file.name}`;
       await supabase.storage.from(BUCKET).upload(name, file);
     }
     setUploading(false);
-    queryClient.invalidateQueries({ queryKey: ["gallery", BUCKET] });
-  }, [queryClient]);
+    queryClient.invalidateQueries({ queryKey: ["gallery", BUCKET, companyId] });
+  }, [queryClient, companyId, userId]);
 
   const deleteMutation = useMutation({
     mutationFn: async (name: string) => {
-      const { error } = await supabase.storage.from(BUCKET).remove([name]);
+      const { error } = await supabase.storage.from(BUCKET).remove([`${companyId}/${name}`]);
       if (error) throw new Error(error.message);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["gallery", BUCKET] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["gallery", BUCKET, companyId] }),
   });
 
+  async function handlePreview(name: string) {
+    const { data, error } = await supabase.storage.from(BUCKET).download(`${companyId}/${name}`);
+    if (error || !data) return;
+    const url = URL.createObjectURL(data);
+    window.open(url, "_blank");
+  }
+
   async function handleDownload(name: string) {
-    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(name, 60);
-    if (error || !data?.signedUrl) return;
+    const { data, error } = await supabase.storage.from(BUCKET).download(`${companyId}/${name}`);
+    if (error || !data) return;
+    const url = URL.createObjectURL(data);
     const a = document.createElement("a");
-    a.href = data.signedUrl;
+    a.href = url;
     a.download = name.replace(/^\d+_/, "");
     document.body.appendChild(a);
     a.click();
     a.remove();
+    URL.revokeObjectURL(url);
   }
 
   function handleDrop(e: React.DragEvent) {
@@ -102,92 +126,113 @@ export default function DocumentsGalleryPage() {
     if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
   }
 
+  const hasFiles = !isLoading && files.length > 0;
+
   return (
-    <div>
+    <div className={hasFiles ? "" : "flex flex-col h-[calc(100vh-5rem)] lg:h-[calc(100vh-5rem)]"}>
       {/* Header */}
-      <div className="mb-8">
+      <div className={hasFiles ? "mb-8" : "mb-4"}>
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Documents</h1>
         <p className="text-foreground/50 mt-1 text-sm">
           Upload and manage PDFs, spreadsheets, presentations, and other files.
         </p>
       </div>
 
-      {/* Upload zone */}
-      <div
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        className={`relative border-2 border-dashed rounded-2xl p-8 mb-6 text-center transition-all ${
-          dragOver
-            ? "border-foreground/30 bg-foreground/[0.04]"
-            : "border-foreground/[0.10] bg-foreground/[0.02] hover:border-foreground/[0.16]"
-        }`}
-      >
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-foreground/[0.06] flex items-center justify-center">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/40">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-foreground/60">
-              {uploading ? "Uploading..." : "Drag & drop files here"}
-            </p>
-            <p className="text-xs text-foreground/30 mt-1">or click to browse</p>
-          </div>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="px-4 py-2 rounded-xl text-xs font-medium bg-foreground text-background hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
-          >
-            Choose Files
-          </button>
-        </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.pptx,.ppt,.txt,.csv,.rtf"
-          onChange={(e) => { if (e.target.files?.length) uploadFiles(e.target.files); e.target.value = ""; }}
-        />
-      </div>
-
-      {/* Search + count */}
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-xs text-foreground/40">
-          {filtered.length} {filtered.length === 1 ? "file" : "files"}
-        </p>
-        <div className="relative w-64">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/30" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search documents..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-foreground/20 transition-colors"
-          />
-        </div>
-      </div>
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.pptx,.ppt,.txt,.csv,.rtf"
+        onChange={(e) => { if (e.target.files?.length) uploadFiles(e.target.files); e.target.value = ""; }}
+      />
 
       {/* File list */}
       {isLoading ? (
         <SkeletonPage header={false} search={false} cols={4} />
-      ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 border border-foreground/[0.08] rounded-2xl">
-          <div className="w-14 h-14 rounded-2xl bg-foreground/[0.03] border border-foreground/[0.08] flex items-center justify-center mb-4">
-            <svg className="text-foreground/20" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" />
-            </svg>
+      ) : files.length === 0 ? (
+        /* Empty state: large upload zone */
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`relative border-2 border-dashed rounded-2xl px-8 text-center transition-all cursor-pointer flex-1 flex items-center justify-center ${
+            dragOver
+              ? "border-foreground/30 bg-foreground/[0.05]"
+              : "border-foreground/[0.10] bg-foreground/[0.02] hover:border-foreground/[0.18] hover:bg-foreground/[0.03]"
+          }`}
+        >
+          <div className="flex flex-col items-center gap-4">
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-colors ${
+              dragOver ? "bg-foreground/[0.10]" : "bg-foreground/[0.06]"
+            }`}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/40">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-base font-medium text-foreground/60">
+                {uploading ? "Uploading..." : "Drag & drop files here"}
+              </p>
+              <p className="text-sm text-foreground/30 mt-1.5">
+                or click anywhere to browse
+              </p>
+            </div>
+
+            <button
+              disabled={uploading}
+              className="px-5 py-2.5 rounded-xl text-sm font-medium bg-foreground text-background hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
+            >
+              {uploading ? "Uploading..." : "Upload Files"}
+            </button>
+
+            <div className="flex flex-wrap justify-center gap-2 mt-2">
+              {["PDF", "DOCX", "XLSX", "PPTX", "CSV", "TXT"].map((ext) => (
+                <span key={ext} className="text-[10px] font-semibold tracking-wider text-foreground/20 bg-foreground/[0.04] px-2.5 py-1 rounded-lg">
+                  {ext}
+                </span>
+              ))}
+            </div>
           </div>
-          <p className="text-sm font-medium text-foreground/50">No documents yet</p>
-          <p className="text-xs text-foreground/30 mt-1">Upload files to get started.</p>
         </div>
       ) : (
+        /* Has files: search bar + table, no upload zone */
+        <>
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs text-foreground/40">
+            {filtered.length} {filtered.length === 1 ? "file" : "files"}
+          </p>
+          <div className="flex items-center gap-3">
+            <div className="relative w-64">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/30" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search documents..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full bg-foreground/[0.03] border border-foreground/[0.08] rounded-xl pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-foreground/20 transition-colors"
+              />
+            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50 shrink-0"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              {uploading ? "Uploading..." : "Upload"}
+            </button>
+          </div>
+        </div>
         <div className="border border-foreground/[0.08] rounded-2xl overflow-hidden">
           <table className="w-full">
             <thead>
@@ -211,13 +256,19 @@ export default function DocumentsGalleryPage() {
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 ${icon.color}`}>
                           {icon.label}
                         </div>
-                        <span className="text-sm font-medium text-foreground truncate max-w-[200px] sm:max-w-[300px]">{displayName}</span>
+                        <button
+                          onClick={() => handlePreview(file.name)}
+                          className="text-sm font-medium text-foreground truncate max-w-[200px] sm:max-w-[300px] hover:underline cursor-pointer text-left"
+                          title="Preview in new tab"
+                        >
+                          {displayName}
+                        </button>
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-xs text-foreground/40 whitespace-nowrap hidden sm:table-cell">{icon.label}</td>
-                    <td className="px-5 py-3.5 text-xs text-foreground/40 whitespace-nowrap hidden md:table-cell">{file.metadata?.size ? formatSize(file.metadata.size) : "—"}</td>
+                    <td className="px-5 py-3.5 text-xs text-foreground/40 whitespace-nowrap hidden md:table-cell">{getMeta(file).size ? formatSize(getMeta(file).size) : "—"}</td>
                     <td className="px-5 py-3.5 text-xs text-foreground/40 whitespace-nowrap hidden lg:table-cell">
-                      {new Date(file.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {file.created_at ? new Date(file.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -248,6 +299,7 @@ export default function DocumentsGalleryPage() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

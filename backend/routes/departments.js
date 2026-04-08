@@ -9,6 +9,7 @@ router.get("/", requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from("departments")
     .select("*, members(count)")
+    .eq("company_id", req.companyId)
     .order("name", { ascending: true });
 
   if (error) return res.status(500).json({ error: error.message });
@@ -34,6 +35,7 @@ router.post("/", requireAuth, async (req, res) => {
 
   const { data, error } = await supabase.from("departments").insert({
     name: name.trim(),
+    company_id: req.companyId,
   }).select();
 
   if (error) return res.status(500).json({ error: error.message });
@@ -50,6 +52,7 @@ router.post("/import", requireAuth, async (req, res) => {
 
   const rows = departments.map((d) => ({
     name: d.name?.trim(),
+    company_id: req.companyId,
   }));
 
   const invalid = rows.filter((r) => !r.name);
@@ -59,7 +62,7 @@ router.post("/import", requireAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from("departments")
-    .upsert(rows, { onConflict: "name", ignoreDuplicates: true })
+    .upsert(rows, { onConflict: "name,company_id", ignoreDuplicates: true })
     .select();
 
   if (error) return res.status(500).json({ error: error.message });
@@ -74,6 +77,7 @@ router.get("/:id", requireAuth, async (req, res) => {
     .from("departments")
     .select("*, members(count)")
     .eq("id", id)
+    .eq("company_id", req.companyId)
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
@@ -101,6 +105,7 @@ router.put("/:id", requireAuth, async (req, res) => {
     .from("departments")
     .update({ name: name.trim() })
     .eq("id", id)
+    .eq("company_id", req.companyId)
     .select();
 
   if (error) return res.status(500).json({ error: error.message });
@@ -119,7 +124,8 @@ router.delete("/", requireAuth, async (req, res) => {
   const { error } = await supabase
     .from("departments")
     .delete()
-    .in("id", ids);
+    .in("id", ids)
+    .eq("company_id", req.companyId);
 
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true, deleted: ids.length });

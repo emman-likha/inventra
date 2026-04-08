@@ -8,7 +8,7 @@ const router = Router();
 router.get("/me", requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, first_name, last_name, role")
+    .select("id, first_name, last_name, role, company_id, company:companies!company_id(name)")
     .eq("id", req.user.id)
     .single();
 

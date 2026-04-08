@@ -307,6 +307,47 @@ export async function deleteInventories(ids: string[]) {
   return handleResponse(res);
 }
 
+// ── Users (admin) ─────────────────────────────────────
+
+export interface CompanyUser {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  role: string;
+  created_at: string;
+}
+
+export async function fetchUsers(): Promise<CompanyUser[]> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/users`, { headers });
+  return handleResponse(res);
+}
+
+export async function inviteUser(data: {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+}) {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/users/invite`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res);
+}
+
+export async function deleteUser(id: string) {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/api/users/${id}`, {
+    method: "DELETE",
+    headers,
+  });
+  return handleResponse(res);
+}
+
 // ── Members ────────────────────────────────────────────
 
 export interface MemberInput {

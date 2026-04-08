@@ -10,6 +10,7 @@ router.get("/", requireAuth, async (req, res) => {
   let { data, error } = await supabase
     .from("assets")
     .select("*, member:members!assigned_to(id, first_name, last_name)")
+    .eq("company_id", req.companyId)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -17,6 +18,7 @@ router.get("/", requireAuth, async (req, res) => {
     const fallback = await supabase
       .from("assets")
       .select("*")
+      .eq("company_id", req.companyId)
       .order("created_at", { ascending: false });
 
     if (fallback.error) return res.status(500).json({ error: fallback.error.message });
@@ -55,6 +57,7 @@ router.post("/", requireAuth, async (req, res) => {
       .from("members")
       .select("site_location")
       .eq("id", assigned_to)
+      .eq("company_id", req.companyId)
       .single();
     if (member?.site_location) {
       resolvedLocation = member.site_location;
@@ -70,6 +73,7 @@ router.post("/", requireAuth, async (req, res) => {
     value: value ?? null,
     assigned_to: assigned_to || null,
     created_by: req.user.id,
+    company_id: req.companyId,
   }).select();
 
   if (error) return res.status(500).json({ error: error.message });
@@ -92,6 +96,7 @@ router.post("/import", requireAuth, async (req, res) => {
     status: a.status || "available",
     value: a.value ?? null,
     created_by: req.user.id,
+    company_id: req.companyId,
   }));
 
   const { data, error } = await supabase.from("assets").insert(rows).select();
@@ -124,6 +129,7 @@ router.put("/:id", requireAuth, async (req, res) => {
         .from("members")
         .select("site_location")
         .eq("id", assigned_to)
+        .eq("company_id", req.companyId)
         .single();
       if (member?.site_location) {
         updates.location = member.site_location;
@@ -141,6 +147,7 @@ router.put("/:id", requireAuth, async (req, res) => {
     .from("assets")
     .update(updates)
     .eq("id", id)
+    .eq("company_id", req.companyId)
     .select();
 
   if (error) return res.status(500).json({ error: error.message });
@@ -159,7 +166,8 @@ router.delete("/", requireAuth, async (req, res) => {
   const { error } = await supabase
     .from("assets")
     .delete()
-    .in("id", ids);
+    .in("id", ids)
+    .eq("company_id", req.companyId);
 
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true, deleted: ids.length });

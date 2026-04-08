@@ -11,6 +11,7 @@ router.get("/", requireAuth, async (req, res) => {
   let query = supabase
     .from("members")
     .select("*")
+    .eq("company_id", req.companyId)
     .order("first_name", { ascending: true });
 
   if (department_id) {
@@ -31,6 +32,7 @@ router.get("/:id", requireAuth, async (req, res) => {
     .from("members")
     .select("*")
     .eq("id", id)
+    .eq("company_id", req.companyId)
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
@@ -57,6 +59,7 @@ router.post("/", requireAuth, async (req, res) => {
     position: position?.trim() || null,
     email: email?.trim() || null,
     site_location: site_location?.trim() || null,
+    company_id: req.companyId,
   }).select();
 
   if (error) return res.status(500).json({ error: error.message });
@@ -79,6 +82,7 @@ router.post("/import", requireAuth, async (req, res) => {
     position: m.position?.trim() || null,
     email: m.email?.trim() || null,
     site_location: m.site_location?.trim() || null,
+    company_id: req.companyId,
   }));
 
   const invalid = rows.filter((r) => !r.department_id || !r.first_name || !r.last_name);
@@ -116,6 +120,7 @@ router.put("/:id", requireAuth, async (req, res) => {
     .from("members")
     .update(updates)
     .eq("id", id)
+    .eq("company_id", req.companyId)
     .select();
 
   if (error) return res.status(500).json({ error: error.message });
@@ -134,7 +139,8 @@ router.delete("/bulk", requireAuth, async (req, res) => {
   const { error } = await supabase
     .from("members")
     .delete()
-    .in("id", ids);
+    .in("id", ids)
+    .eq("company_id", req.companyId);
 
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true, deleted: ids.length });
@@ -147,7 +153,8 @@ router.delete("/:id", requireAuth, async (req, res) => {
   const { error } = await supabase
     .from("members")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .eq("company_id", req.companyId);
 
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
